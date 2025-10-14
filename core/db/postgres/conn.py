@@ -1,10 +1,18 @@
-# core/db/pg_conn.py
+# core/db/postgres/conn.py
 
 import asyncpg
-from config import DB_CONFIG
+from config import DB_USER, DB_PASSWORD, DB_NAME, DB_HOST, DB_PORT
 from pathlib import Path
 
 pool: asyncpg.pool.Pool | None = None  # Pool global
+
+DB_CONFIG = {
+    "user": DB_USER,
+    "password": DB_PASSWORD,
+    "database": DB_NAME,
+    "host": DB_HOST,
+    "port": DB_PORT
+}
 
 # ────────────────────────────────
 # Conexión y esquema
@@ -22,7 +30,7 @@ async def init_tables():
     if pool is None:
         raise RuntimeError("El pool de conexiones no está inicializado")
 
-    schema_file = Path(__file__).parent / "pg_schema.sql"
+    schema_file = Path(__file__).parent / "schema.sql"
     if not schema_file.exists():
         raise FileNotFoundError(f"No se encontró {schema_file}")
 

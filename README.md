@@ -32,11 +32,12 @@ ugr-matrix-bot/
 │
 ├── core/
 |   ├── db/
-|   |   ├── constants.py
-|   |   ├── pg_conn.py
-|   |   ├── pg_queries.py
-|   |   ├── pg_schema.py
-|   |   └── pg_utils.py
+|   |   ├── postgres/
+|   |   |   ├── conn.py
+|   |   |   ├── queries.py
+|   |   |   ├── schema.py
+|   |   |   └── utils.py
+|   |   └── constants.py
 |   |
 │   ├── client_manager.py
 │   ├── command_registry.py
@@ -51,7 +52,8 @@ ugr-matrix-bot/
 └── handlers/
     ├── messages.py
     ├── members.py
-    └── reactions.py
+    ├── reactions.py
+    └── redactions.py
 ```
 
 ---
@@ -107,16 +109,17 @@ Renombra y edita el archivo `config.py` con los datos de tu instancia Matrix y b
 ```python
 HOMESERVER = "https://matrix.example.org"
 USERNAME = "@bot:example.org"
-PASSWORD = "contraseña_del_bot"
+PASSWORD = "secret_password"
 COMMAND_PREFIX = "!"
 
-DB_CONFIG = {
-    "user": "tu_usuario",
-    "password": "tu_password",
-    "database": "matrix_bot",
-    "host": "localhost",
-    "port": 5432
-}
+
+DB_TYPE = "postgres"  # Solo soporta "postgres" pero es útil para potenciales expansiones
+
+DB_USER = "tu_usuario"
+DB_PASSWORD = "tu_password"
+DB_NAME = "matrix_bot"
+DB_HOST = "localhost"
+DB_PORT = 5432
 ```
 
 ### 5️⃣ Inicialización del esquema de la base de datos
