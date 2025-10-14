@@ -8,18 +8,27 @@ from config import COMMAND_PREFIX
 COMMANDS = {}
 
 def load_commands():
+    """Carga dinámicamente los comandos desde el paquete `commands`."""
     for _, module_name, _ in pkgutil.iter_modules(commands.__path__):
         try:
             module = importlib.import_module(f"commands.{module_name}")
 
             # Verificar que tenga un método 'run'
             if hasattr(module, "run") and callable(module.run):
-                COMMANDS[module_name] = module
+                usage = getattr(module, "USAGE", f"!{module_name}")
+                description = getattr(module, "DESCRIPTION", "Sin descripción disponible.")
+
+                COMMANDS[module_name] = {
+                    "module": module,
+                    "usage": usage,
+                    "description": description,
+                }
             else:
                 print(f"[!] El módulo {module_name} no tiene un 'run' válido, se ignora.")
 
         except Exception as e:
             print(f"[!] Error cargando módulo {module_name}: {e}")
+
     print(f"[+] {len(COMMANDS)} comandos cargados: {list(COMMANDS.keys())}")
 
 async def execute_command(client, room_id, event, body):

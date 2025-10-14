@@ -35,7 +35,8 @@ ugr-matrix-bot/
 |   |   ├── constants.py
 |   |   ├── pg_conn.py
 |   |   ├── pg_queries.py
-|   |   └── pg_schema.py
+|   |   ├── pg_schema.py
+|   |   └── pg_utils.py
 |   |
 │   ├── client_manager.py
 │   ├── command_registry.py
