@@ -1,0 +1,17 @@
+HOMESERVER = "https://matrix.example.org"
+USERNAME = "@bot:example.org"
+PASSWORD = "secret_password"
+COMMAND_PREFIX = "!"
+ADMIN_TOKEN = "TU_ADMIN_TOKEN"      # Token de admin Synapse (para crear usuarios en el script de setup.py)
+
+
+DB_TYPE = "postgres"  # Solo soporta "postgres" pero es útil para potenciales expansiones
+
+DB_USER = "tu_usuario"
+DB_PASSWORD = "tu_password"
+DB_NAME = "matrix_bot"
+DB_HOST = "localhost"
+DB_PORT = 5432
+
+MOODLE_URL = "https://moodle.example.com"
+MOODLE_TOKEN = "TU_TOKEN_MOODLE"

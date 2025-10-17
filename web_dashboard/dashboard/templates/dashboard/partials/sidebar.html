@@ -1,0 +1,61 @@
+<!-- Sidebar: fijo en escritorio, deslizante en móvil -->
+<aside 
+  class="fixed inset-y-0 left-0 w-64 bg-white border-r shadow-lg transform transition-transform duration-300 ease-in-out z-30
+         lg:static lg:translate-x-0"
+  :class="{'-translate-x-full': !sidebarOpen, 'translate-x-0': sidebarOpen}"
+>
+  <!-- Botón cerrar visible solo en móvil -->
+  <div class="flex justify-end lg:hidden pr-4 pt-4">
+    <button @click="sidebarOpen = false" class="text-gray-700 hover:text-gray-900 focus:outline-none">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
+        viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+  
+  <!-- Contenido del menú -->
+  <nav class="p-4 flex flex-col h-full overflow-y-auto">
+    <ul class="flex-1">
+      {% for course in courses %}
+      <li x-data="{ open: false }" class="mb-2">
+        <button 
+          @click="open = !open"
+          class="w-full text-left px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded flex justify-between items-center transition"
+        >
+          <div class="flex items-center space-x-2">
+            <!-- Imagen del curso si existe -->
+            {% if course.courseimage %}
+              <img src="{{ course.courseimage }}" alt="{{ course.shortname }}" class="w-6 h-6 rounded object-cover">
+            {% endif %}
+            <span class="truncate">({{ course.shortname }}) {{ course.displayname|default:course.fullname }}</span>
+          </div>
+
+          <svg :class="{'rotate-180': open}" xmlns="http://www.w3.org/2000/svg" 
+            class="h-4 w-4 transform transition-transform duration-300" 
+            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+              d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <!-- Submenú con dummy items -->
+        <ul 
+          x-show="open" 
+          x-transition 
+          class="ml-6 mt-1 space-y-1 overflow-hidden transition-all duration-500 ease-in-out"
+        >
+          <li>
+            <a href="#" class="block px-4 py-1 text-gray-700 hover:text-blue-600 transition">
+              📘 Dummy submenu
+            </a>
+          </li>
+        </ul>
+      </li>
+      {% empty %}
+      <li class="text-gray-500 italic px-4 py-2">No hay cursos disponibles</li>
+      {% endfor %}
+    </ul>
+  </nav>
+</aside>

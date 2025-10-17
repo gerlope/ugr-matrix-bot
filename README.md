@@ -1,5 +1,7 @@
 # 🤖 UGR Matrix Bot
 
+## AVISO: EN DESARROLLO, AUN NO ES FUNCIONAL
+
 ![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/license-GPLv3-red.svg)
 ![Matrix](https://img.shields.io/badge/platform-Matrix-FF69B4.svg)

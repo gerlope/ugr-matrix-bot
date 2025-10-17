@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS rooms (
     id SERIAL PRIMARY KEY,
     room_id TEXT UNIQUE NOT NULL,          -- Actual Matrix room ID
     moodle_course_id INTEGER NOT NULL,     -- Moodle course ID
-    teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    teacher_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     shortcode TEXT NOT NULL,               -- short identifier used by the teacher
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE (teacher_id, shortcode)         -- shortcode unique per teacher
@@ -50,9 +50,18 @@ CREATE INDEX IF NOT EXISTS idx_reactions_teacher_id ON reactions(teacher_id);
 CREATE INDEX IF NOT EXISTS idx_reactions_student_id ON reactions(student_id);
 CREATE INDEX IF NOT EXISTS idx_reactions_moodle_course_id ON reactions(moodle_course_id);
 
-CREATE TYPE weekday AS ENUM (
-    'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'
-);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_type WHERE typname = 'weekday'
+    ) THEN
+        CREATE TYPE weekday AS ENUM (
+            'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'
+        );
+    END IF;
+END
+$$;
 
 -- Teacher availability table
 CREATE TABLE IF NOT EXISTS teacher_availability (
@@ -85,9 +94,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_no_overlap
-BEFORE INSERT ON teacher_availability
-FOR EACH ROW
-EXECUTE FUNCTION trg_no_overlap_func();
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trg_no_overlap'
+    ) THEN
+        CREATE TRIGGER trg_no_overlap
+        BEFORE INSERT ON teacher_availability
+        FOR EACH ROW
+        EXECUTE FUNCTION trg_no_overlap_func();
+    END IF;
+END
+$$;
 
 -- ============================================
