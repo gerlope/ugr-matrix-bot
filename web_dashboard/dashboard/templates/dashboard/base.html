@@ -9,7 +9,10 @@
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </head>
 
-<body class="bg-gray-100 text-gray-800 h-full flex flex-col">
+<body 
+x-data="{ createRoomModal: false }"
+class="bg-gray-100 text-gray-800 h-full flex flex-col"
+>
   <!-- Header -->
   {% include 'dashboard/partials/header.html' %}
 
@@ -32,5 +35,8 @@
       {% endblock %}
     </main>
   </div>
+
+  <!-- Modal Crear Sala -->
+  {% include 'dashboard/partials/create_room_modal.html' %}
 </body>
 </html>

@@ -17,8 +17,9 @@
   </div>
 
   <form action="{% url 'logout' %}" method="post" class="m-0">
+    <span class="text-lg font-semibold text-l px-2">Logged in as: {{ teacher.username }}</span>
     {% csrf_token %}
-    <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md transition">
+    <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-md transition">
         Cerrar sesión
     </button>
   </form>

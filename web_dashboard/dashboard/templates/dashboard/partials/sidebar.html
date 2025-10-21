@@ -19,17 +19,13 @@
   <nav class="p-4 flex flex-col h-full overflow-y-auto">
     <ul class="flex-1">
       {% for course in courses %}
-      <li x-data="{ open: false }" class="mb-2">
+      <li x-data="{ open: {{ course.is_open }} }" class="mb-2">
         <button 
           @click="open = !open"
           class="w-full text-left px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded flex justify-between items-center transition"
         >
           <div class="flex items-center space-x-2">
-            <!-- Imagen del curso si existe -->
-            {% if course.courseimage %}
-              <img src="{{ course.courseimage }}" alt="{{ course.shortname }}" class="w-6 h-6 rounded object-cover">
-            {% endif %}
-            <span class="truncate">({{ course.shortname }}) {{ course.displayname|default:course.fullname }}</span>
+            <span class="truncate">{{ course.shortname }} - {{ course.displayname|default:course.fullname }}</span>
           </div>
 
           <svg :class="{'rotate-180': open}" xmlns="http://www.w3.org/2000/svg" 
@@ -46,16 +42,42 @@
           x-transition 
           class="ml-6 mt-1 space-y-1 overflow-hidden transition-all duration-500 ease-in-out"
         >
+          {% if course.general_room %}
           <li>
-            <a href="#" class="block px-4 py-1 text-gray-700 hover:text-blue-600 transition">
-              📘 Dummy submenu
+            <a href="{% url 'dashboard' %}?room_id={{ course.general_room.id }}"
+               class="block px-4 py-1 rounded transition
+                    {% if selected_room_id == course.general_room.id %} bg-blue-100 text-blue-700 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-100 {% endif %}">
+              🏠 General
             </a>
           </li>
+          {% endif %}
+          {% if course.rooms %}
+            {% for room in course.rooms %}
+            <li>
+              <a href="{% url 'dashboard' %}?room_id={{ room.id }}" 
+                 class="block px-4 py-1 rounded transition
+                      {% if selected_room_id == room.id %} bg-blue-100 text-blue-700 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-100 {% endif %}">
+                💬 {{ room.shortcode }}
+              </a>
+            </li>
+            {% endfor %}
+          {% else %}
+            <li class="px-4 py-1 text-gray-400 italic">No rooms yet</li>
+          {% endif %}
         </ul>
       </li>
       {% empty %}
       <li class="text-gray-500 italic px-4 py-2">No hay cursos disponibles</li>
       {% endfor %}
     </ul>
+
+    <div class="mt-4">
+      <button 
+        @click="createRoomModal = true"
+        class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+      >
+        + Crear nueva sala
+      </button>
+    </div>
   </nav>
 </aside>

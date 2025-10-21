@@ -5,19 +5,26 @@
 {% block content %}
 <h2 class="text-2xl font-semibold mb-4">Panel de control</h2>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+{% if selected_room %}
   <div class="bg-white shadow rounded-lg p-4">
-    <h3 class="text-lg font-semibold mb-2">Resumen</h3>
-    <p>Usuarios activos: 24</p>
-    <p>Proyectos en curso: 5</p>
-  </div>
+    <h3 class="text-lg font-semibold mb-2">
+      Curso: {{ selected_course.displayname|default:selected_course.fullname }}  
+      ({{ selected_course.shortname }}) - Sala: {{ selected_room.shortcode }}
+    </h3>
 
-  <div class="bg-white shadow rounded-lg p-4">
-    <h3 class="text-lg font-semibold mb-2">Actividad reciente</h3>
-    <ul class="list-disc list-inside text-gray-700">
-      <li>Nuevo usuario registrado</li>
-      <li>Proyecto "Matrix" actualizado</li>
-    </ul>
+    <p>Moodle Course ID: {{ selected_course.id }}</p>
+    <p>Room Matrix ID: {{ selected_room.room_id }}</p>
+
+    {% if selected_room.teacher_id %}
+      <p>Profesor asignado: {{ selected_room.teacher_id }}</p>
+    {% else %}
+      <p>Sin profesor asignado (General)</p>
+    {% endif %}
   </div>
-</div>
+{% else %}
+  <div class="bg-white shadow rounded-lg p-4">
+    <p class="text-gray-600 italic">Seleccione una sala del menú para ver los datos correspondientes.</p>
+  </div>
+{% endif %}
+
 {% endblock %}
