@@ -31,7 +31,9 @@ class Room(models.Model):
     moodle_course_id = models.IntegerField()
     teacher_id = models.IntegerField()  # references your external users table
     shortcode = models.TextField()
+    moodle_group = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    active = models.BooleanField(default=True)
 
     class Meta:
         managed = False  # Django no crea ni migra esta tabla
@@ -42,4 +44,23 @@ class Room(models.Model):
 
     def __str__(self):
         return f"{self.shortcode} (course {self.moodle_course_id})"
+    
+class Reaction(models.Model):
+    id = models.AutoField(primary_key=True)
+    teacher_id = models.IntegerField()
+    student_id = models.IntegerField()
+    room_id = models.IntegerField()
+    emoji = models.TextField()
+    count = models.IntegerField(default=1)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = False
+        db_table = 'reactions'
+        constraints = [
+            models.UniqueConstraint(fields=['teacher_id', 'student_id', 'emoji'], name='unique_reaction')
+        ]
+
+    def __str__(self):
+        return f"{self.emoji} x{self.count} (teacher={self.teacher_id}, student={self.student_id})"
 

@@ -1,15 +1,19 @@
 import sys
-import requests
+from django.db import IntegrityError
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
 from django.contrib import messages
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.contrib.auth import login
 from django.contrib.auth.models import User
 from pathlib import Path
+
+from .utils import get_data_for_dashboard
 from .models import Room, ExternalUser
 from .forms import ExternalLoginForm, CreateRoomForm
+
 
 # add repo root (two levels above this views.py) to sys.path so "import config" works
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -23,60 +27,18 @@ def dashboard(request):
 
     if not teacher:
         return redirect('login')
-    selected_room_id = request.GET.get('room_id')
-    selected_room = None
-    selected_course = None
+    
+    selected_room_id = request.GET.get('room_id', None)
 
-    # Fetch courses from Moodle API
-    endpoint = f"{MOODLE_URL}/webservice/rest/server.php"
-    params = {
-        'wstoken': MOODLE_TOKEN,
-        'wsfunction': 'core_enrol_get_users_courses',
-        'moodlewsrestformat': 'json',
-        'userid': teacher["moodle_id"],
-    }
+    data = get_data_for_dashboard(teacher, selected_room_id)
 
-    try:
-        resp = requests.get(endpoint, params=params, timeout=20)
-        resp.raise_for_status()
-        courses_data = resp.json()
-    except Exception as e:
-        courses_data = []
-        print(f"[Dashboard] Error fetching courses: {e}")
-
-
-    # Get all rooms belonging to this teacher from PostgreSQL
-    teacher_rooms = Room.objects.using('postgresql').filter(teacher_id=teacher['id'])
-    general_rooms = Room.objects.using('postgresql').filter(teacher_id=None)
-
-    # Group rooms by course ID for easy rendering
-    course_list = []
-    for course in courses_data:
-        is_open = "false"
-        course_id = course.get('id')
-        general_room = next((room for room in general_rooms if room.moodle_course_id == course_id), None)
-        course_rooms = [room for room in teacher_rooms if room.moodle_course_id == course_id]
-        if selected_room_id and selected_room_id in [str(r.id) for r in course_rooms + ([general_room] if general_room else [])]:
-            is_open = "true"
-            selected_room = next((r for r in course_rooms + ([general_room] if general_room else []) if str(r.id) == selected_room_id), None)
-            selected_course = course
-
-        course_list.append({
-            'id': course_id,
-            'shortname': course.get('shortname'),
-            'fullname': course.get('fullname'),
-            'displayname': course.get('displayname'),
-            'general_room': general_room,
-            'rooms': course_rooms,
-            'is_open': is_open,
-        })
 
     return render(request, 'dashboard/dashboard.html', {
         'teacher': teacher,
-        'courses': course_list,
-        'selected_room_id': int(selected_room_id) if selected_room_id else None,
-        'selected_room': selected_room,
-        'selected_course': selected_course,
+        'courses': data['courses'],
+        'selected_room': data['selected_room'],
+        'selected_course': data['selected_course'],
+        'students': data['selected_students'],
     })
 
 
@@ -125,24 +87,71 @@ def external_login(request):
 def create_room(request):
     teacher = request.session.get('teacher')
     form = CreateRoomForm(request.POST)
+
     if not form.is_valid():
-        messages.error(request, "Formulario inválido. Por favor, revise los datos.")
-        return redirect('dashboard')
+        data = get_data_for_dashboard(teacher, selected_room_id)
+        return render(request, 'dashboard/dashboard.html', {
+            'teacher': teacher,
+            'courses': data['courses'],
+            'selected_room': data['selected_room'],
+            'selected_course': data['selected_course'],
+            'students': data['selected_students'],
+            'create_room_form': form,
+            'show_create_modal': "true",
+        })
+    
+    selected_room_id = request.POST.get('selected_room_id', None)
+    print(f"[DEBUG] create_room called with selected_room_id={selected_room_id}")
     
     course_id = form.cleaned_data['course_id']
     shortcode = form.cleaned_data['shortcode']
+    moodle_group = form.cleaned_data.get('moodle_group', None)
+    auto_invite = form.cleaned_data.get('auto_invite', False)
+    restrict_group = form.cleaned_data.get('restrict_group', False)
 
-    if not (course_id and shortcode):
-        messages.error(request, "Todos los campos son obligatorios.")
-        return redirect('dashboard')
+    try:
+        room = Room.objects.using('postgresql').create(
+            moodle_course_id=course_id,
+            teacher_id=teacher['id'],
+            shortcode=shortcode,
+            room_id=f"TEMP_{shortcode}_{teacher['id']}",
+            moodle_group=moodle_group if moodle_group and restrict_group else None,
+        )
 
-    # Crear la sala en la base de datos
-    Room.objects.using('postgresql').create(
-        moodle_course_id=course_id,
-        teacher_id=teacher['id'],
-        shortcode=shortcode,
-        room_id="TEMPORAL"+str(shortcode)+str(teacher['id'])  # Puedes generar el room_id real más adelante
-    )
+        if moodle_group is not None and auto_invite:
+            print(f"[INFO] Invitando miembros del grupo {moodle_group} a la sala {room.shortcode}")
 
-    messages.success(request, f"Sala '{shortcode}' creada correctamente.")
-    return redirect('dashboard')
+        messages.success(request, f"Sala '{shortcode}' creada correctamente.")
+        
+        # Redirect to dashboard with room_id as GET parameter
+        dashboard_url = f"{reverse('dashboard')}?room_id={room.id}"
+        return redirect(dashboard_url)
+    
+    except IntegrityError as e:
+        if "unique" in str(e).lower():
+            form.add_error('shortcode', "Ya existe una sala con este nombre.")
+        else:
+            form.add_error(None, f"Error al crear la sala: {e}")
+
+        data = get_data_for_dashboard(teacher, selected_room_id)
+        return render(request, 'dashboard/dashboard.html', {
+            'teacher': teacher,
+            'courses': data['courses'],
+            'selected_room': data['selected_room'],
+            'selected_course': data['selected_course'],
+            'students': data['selected_students'],
+            'create_room_form': form,
+            'show_create_modal': "true",
+        })
+    except Exception as e:
+        form.add_error(None, f"Error al crear la sala: {e}")
+        data = get_data_for_dashboard(teacher, selected_room_id)
+        return render(request, 'dashboard/dashboard.html', {
+            'teacher': teacher,
+            'courses': data['courses'],
+            'selected_room': data['selected_room'],
+            'selected_course': data['selected_course'],
+            'students': data['selected_students'],
+            'create_room_form': form,
+            'show_create_modal': "true",
+        })

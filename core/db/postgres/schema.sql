@@ -22,7 +22,9 @@ CREATE TABLE IF NOT EXISTS rooms (
     moodle_course_id INTEGER NOT NULL,     -- Moodle course ID
     teacher_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     shortcode TEXT NOT NULL,               -- short identifier used by the teacher
+    moodle_group TEXT,                     -- optional Moodle group, if present only that group has access
     created_at TIMESTAMP DEFAULT NOW(),
+    active BOOLEAN DEFAULT TRUE,           -- whether the room is active
     UNIQUE (teacher_id, shortcode)         -- shortcode unique per teacher
 );
 
@@ -38,18 +40,17 @@ CREATE TABLE IF NOT EXISTS reactions (
     id SERIAL PRIMARY KEY,
     teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    moodle_course_id INTEGER NOT NULL,     -- Moodle course ID
+    room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
     emoji TEXT NOT NULL,                   -- reaction emoji ("👍", etc.)
     count INTEGER DEFAULT 1 CHECK (count >= 1),
     last_updated TIMESTAMP DEFAULT NOW(),
-    UNIQUE (teacher_id, student_id, moodle_course_id, emoji)
+    UNIQUE (teacher_id, student_id, room_id, emoji)
 );
 
 -- 🔹 Indexes for faster joins and lookups
 CREATE INDEX IF NOT EXISTS idx_reactions_teacher_id ON reactions(teacher_id);
 CREATE INDEX IF NOT EXISTS idx_reactions_student_id ON reactions(student_id);
-CREATE INDEX IF NOT EXISTS idx_reactions_moodle_course_id ON reactions(moodle_course_id);
-
+CREATE INDEX IF NOT EXISTS idx_reactions_room_id ON reactions(room_id);
 
 DO $$
 BEGIN

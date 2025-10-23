@@ -8,3 +8,6 @@ class ExternalLoginForm(forms.Form):
 class CreateRoomForm(forms.Form):
     course_id = forms.IntegerField()
     shortcode = forms.CharField(max_length=100)
+    moodle_group = forms.CharField(max_length=100, required=False)
+    auto_invite = forms.BooleanField(required=False, initial=False)
+    restrict_group = forms.BooleanField(required=False, initial=False)

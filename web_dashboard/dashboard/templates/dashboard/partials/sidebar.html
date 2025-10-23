@@ -46,20 +46,31 @@
           <li>
             <a href="{% url 'dashboard' %}?room_id={{ course.general_room.id }}"
                class="block px-4 py-1 rounded transition
-                    {% if selected_room_id == course.general_room.id %} bg-blue-100 text-blue-700 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-100 {% endif %}">
+                    {% if selected_room.id == course.general_room.id %} bg-blue-100 text-blue-700 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-100 {% endif %}">
               🏠 General
+            </a>
+          </li>
+          {% endif %}
+          {% if course.teachers_room %}
+          <li>
+            <a href="{% url 'dashboard' %}?room_id={{ course.teachers_room.id }}"
+               class="block px-4 py-1 rounded transition
+                    {% if selected_room.id == course.teachers_room.id %} bg-blue-100 text-blue-700 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-100 {% endif %}">
+              🎓 Profesores
             </a>
           </li>
           {% endif %}
           {% if course.rooms %}
             {% for room in course.rooms %}
-            <li>
-              <a href="{% url 'dashboard' %}?room_id={{ room.id }}" 
-                 class="block px-4 py-1 rounded transition
-                      {% if selected_room_id == room.id %} bg-blue-100 text-blue-700 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-100 {% endif %}">
-                💬 {{ room.shortcode }}
-              </a>
-            </li>
+              {% if room.active %}
+                <li>
+                  <a href="{% url 'dashboard' %}?room_id={{ room.id }}" 
+                     class="block px-4 py-1 rounded transition
+                          {% if selected_room.id == room.id %} bg-blue-100 text-blue-700 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-100 {% endif %}">
+                    💬 {{ room.shortcode }}
+                  </a>
+                </li>
+              {% endif %}
             {% endfor %}
           {% else %}
             <li class="px-4 py-1 text-gray-400 italic">No rooms yet</li>
@@ -73,7 +84,7 @@
 
     <div class="mt-4">
       <button 
-        @click="createRoomModal = true"
+        @click="$store.modal.createRoomModal = true"
         class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
       >
         + Crear nueva sala

@@ -1,7 +1,6 @@
 USAGE = "!reacciones"
 DESCRIPTION = "Muestra las reacciones dadas (profesores) o recibidas (alumnos)."
 
-import importlib
 from core.db.constants import *
 from core.db.constants import DB_MODULES
 from config import DB_TYPE
@@ -26,11 +25,11 @@ async def run(client, room_id, event):
             last_course = None
             last_student = None
             for r in reactions:
-                if last_course != r[COL_REACTION_MOODLE_COURSE_ID]:
+                if last_course != r[COL_REACTION_ROOM_ID]:
                     if last_course is not None:
                         texto += "\n"
-                    last_course = r[COL_REACTION_MOODLE_COURSE_ID]
-                    texto += f"📚 Curso: {r[COL_REACTION_MOODLE_COURSE_ID]}\n"
+                    last_course = r[COL_REACTION_ROOM_ID]
+                    texto += f"📚 Sala: {r[COL_REACTION_ROOM_ID]}\n"
                     last_student = None
                 if last_student != r[JOINED_REACTION_STUDENT_MATRIX_ID]:
                     if last_student is not None:
@@ -47,11 +46,11 @@ async def run(client, room_id, event):
             last_course = None
             last_teacher = None
             for r in reactions:
-                if last_course != r[COL_REACTION_MOODLE_COURSE_ID]:
+                if last_course != r[COL_REACTION_ROOM_ID]:
                     if last_course is not None:
                         texto += "\n"
-                    last_course = r[COL_REACTION_MOODLE_COURSE_ID]
-                    texto += f"📚 Curso: {r[COL_REACTION_MOODLE_COURSE_ID]}\n"
+                    last_course = r[COL_REACTION_ROOM_ID]
+                    texto += f"📚 Sala: {r[COL_REACTION_ROOM_ID]}\n"
                     last_teacher = None
                 if last_teacher != r[JOINED_REACTION_TEACHER_MATRIX_ID]:
                     if last_teacher is not None:

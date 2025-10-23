@@ -193,14 +193,20 @@ async def main():
             if not DRY_RUN:
                 topic = f"Grupo de la asignatura {cname}"
                 #room_id = await create_room(session, token, cname, topic)
-                room_id = "test_room_id"+str(cid)
+                room_id = f"test_room_{cshortname}"
+                room_id_teachers = f"{room_id}_teachers"
                 await conn.execute("""
                     INSERT INTO rooms (room_id, moodle_course_id, teacher_id, shortcode)
                     VALUES ($1, $2, $3 , $4)
                     ON CONFLICT (room_id) DO NOTHING
                 """, room_id, cid, None, cshortname)
+                await conn.execute("""
+                    INSERT INTO rooms (room_id, moodle_course_id, teacher_id, shortcode)
+                    VALUES ($1, $2, $3 , $4)
+                    ON CONFLICT (room_id) DO NOTHING
+                """, room_id_teachers, cid, None, cshortname+"_teachers")
 
-                print(f"[CREADA] Sala '{cname}' ({room_id})")
+                print(f"[CREADA] Salas '{cname}' ({room_id} y {room_id_teachers})")
 
             for u in users:
                 email = u.get("email")
@@ -239,6 +245,9 @@ async def main():
                     # Invitar a la sala
                     if room_id:
                         #await invite_user(session, token, room_id, matrix_id)
+                        if is_teacher:
+                            time.sleep(INVITE_DELAY)
+                            #await invite_user(session, token, room_id_teachers, matrix_id)
                         print(f"   → Invitado {matrix_id} ({'profesor' if is_teacher else 'alumno'})")
                         time.sleep(INVITE_DELAY)
 

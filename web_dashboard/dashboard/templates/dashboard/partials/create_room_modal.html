@@ -1,34 +1,121 @@
-
-
-  <!-- Modal para crear sala -->
-  <div 
-    x-show="createRoomModal" 
-    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+<div 
+  x-show="$store.modal.createRoomModal" 
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  x-transition.opacity
+  x-data="{
+    selectedCourse: '{{ create_room_form.course_id.value|default:'' }}',
+    selectedGroup: '{{ create_room_form.moodle_group.value|default:'' }}',
+    courseGroups: {},
+    hasGroups() { return this.selectedCourse && this.courseGroups[this.selectedCourse]?.length > 0 }
+  }"
+  @keydown.escape.window="$store.modal.createRoomModal = false"
+  @click.self="$store.modal.createRoomModal = false"
+>
+  <div class="bg-white rounded-lg shadow-lg w-96 p-6 relative"
+    @click.stop
     x-transition.opacity
   >
-    <div class="bg-white rounded-lg shadow-lg w-96 p-6 relative">
-      <h3 class="text-lg font-semibold mb-4">Crear nueva sala</h3>
+    <h3 class="text-lg font-semibold mb-4">Crear nueva sala</h3>
 
-      <form method="POST" action="{% url 'create_room' %}">
-        {% csrf_token %}
-        <div class="mb-4">
-          <label class="block mb-1 font-medium">Asignatura</label>
-          <select name="course_id" class="w-full border rounded px-3 py-2">
-            {% for course in courses %}
-              <option value="{{ course.id }}">{{ course.shortname }} - {{ course.displayname|default:course.fullname }}</option>
-            {% endfor %}
-          </select>
-        </div>
+    {% if create_room_form and create_room_form.non_field_errors %}
+      <div class="mb-4 p-2 bg-red-100 text-red-700 rounded">
+        {% for error in create_room_form.non_field_errors %}
+          <p>{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
 
-        <div class="mb-4">
-          <label class="block mb-1 font-medium">Shortname de la sala</label>
-          <input type="text" name="shortcode" class="w-full border rounded px-3 py-2" placeholder="Ej: grupo1" required>
-        </div>
+    <form method="POST" action="{% url 'create_room' %}">
+      {% csrf_token %}
+      <input type="hidden" name="selected_room_id" value="{{ selected_room.id|default:'' }}">
 
-        <div class="flex justify-end space-x-2">
-          <button type="button" @click="createRoomModal = false" class="px-4 py-2 border rounded hover:bg-gray-100">Cancelar</button>
-          <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Crear</button>
-        </div>
-      </form>
-    </div>
+      <!-- Seleccionar curso -->
+      <div class="mb-4">
+        <label class="block mb-1 font-medium">Asignatura</label>
+        <select 
+          name="course_id" 
+          class="w-full border rounded px-3 py-2"
+          x-model="selectedCourse"
+          @change="selectedGroup = ''"
+          required
+        >
+          <option value="">Seleccione un curso</option>
+          {% for course in courses %}
+            <option 
+              value="{{ course.id }}"
+              {% if create_room_form.course_id.value == course.id|stringformat:"s" %}selected{% endif %}
+              x-init="$nextTick(() => { courseGroups['{{ course.id }}'] = {{ course.groups|safe }} })"
+            >
+              {{ course.shortname }} - {{ course.displayname|default:course.fullname }}
+            </option>
+          {% endfor %}
+        </select>
+        {% if create_room_form.course_id.errors %}
+          <p class="text-red-600 text-sm mt-1">{{ create_room_form.course_id.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Shortcode -->
+      <div class="mb-4">
+        <label class="block mb-1 font-medium">Nombre de la sala</label>
+        <input 
+          type="text" 
+          name="shortcode" 
+          class="w-full border rounded px-3 py-2" 
+          placeholder="Ej: grupo1"
+          value="{{ create_room_form.shortcode.value|default_if_none:'' }}"
+          required
+        >
+        {% if create_room_form.shortcode.errors %}
+          <p class="text-red-600 text-sm mt-1">{{ create_room_form.shortcode.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Seleccionar grupo -->
+      <div class="mb-4">
+        <label class="block mb-1 font-medium">Vincular con grupo</label>
+        <select 
+          name="moodle_group" 
+          class="w-full border rounded px-3 py-2"
+          x-model="selectedGroup"
+          :disabled="!selectedCourse"
+          :class="!selectedCourse ? 'bg-gray-200 cursor-not-allowed opacity-60' : ''"
+        >
+          <option value="">Ninguno</option>
+
+          <template x-if="selectedCourse && courseGroups[selectedCourse] && courseGroups[selectedCourse].length">
+            <template x-for="group in courseGroups[selectedCourse]" :key="group.id">
+              <option :value="group.name" x-text="group.name" :selected="group.name === '{{ create_room_form.moodle_group.value|default:'' }}'"></option>
+            </template>
+          </template>
+
+          <template x-if="selectedCourse && (!courseGroups[selectedCourse] || !courseGroups[selectedCourse].length)">
+            <option disabled>No hay grupos disponibles</option>
+          </template>
+        </select>
+        {% if create_room_form.moodle_group.errors %}
+          <p class="text-red-600 text-sm mt-1">{{ create_room_form.moodle_group.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Checkboxes -->
+      <div class="mb-4 space-y-2">
+        <label class="flex items-center space-x-2" :class="!selectedGroup ? 'opacity-40 cursor-not-allowed' : ''">
+          <input type="checkbox" name="auto_invite" class="rounded" :disabled="!selectedGroup" {% if create_room_form.auto_invite.value %}checked{% endif %}>
+          <span>Invitar automáticamente a todos los miembros del grupo</span>
+        </label>
+
+        <label class="flex items-center space-x-2" :class="!selectedGroup ? 'opacity-40 cursor-not-allowed' : ''">
+          <input type="checkbox" name="restrict_group" class="rounded" :disabled="!selectedGroup" {% if create_room_form.restrict_group.value %}checked{% endif %}>
+          <span>Restringir acceso solo a miembros del grupo</span>
+        </label>
+      </div>
+
+      <!-- Botones -->
+      <div class="flex justify-end space-x-2">
+        <button type="button" @click="$store.modal.createRoomModal = false" class="px-4 py-2 border rounded hover:bg-gray-100">Cancelar</button>
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Crear</button>
+      </div>
+    </form>
   </div>
+</div>
