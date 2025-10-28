@@ -38,12 +38,14 @@
 
   <!-- Modal Crear Sala -->
   {% include 'dashboard/partials/create_room_modal.html' %}
+  {% include 'dashboard/partials/deactivate_room_modal.html' %}
 
   <script>
     document.addEventListener('alpine:init', () => {
       const body = document.querySelector('body');
       Alpine.store('modal', {
-        createRoomModal: body.dataset.showCreateModal === "true"
+        createRoomModal: body.dataset.showCreateModal === "true",
+        deactivateRoomModal: false,
       });
     });
   </script>

@@ -6,10 +6,34 @@
 
 {% if selected_room %}
   <div class="bg-white shadow rounded-lg p-4 mb-6">
-    <h3 class="text-lg font-semibold mb-2">
-      Curso: {{ selected_course.displayname|default:selected_course.fullname }}  
-      ({{ selected_course.shortname }}) - Sala: {{ selected_room.shortcode }}
-    </h3>
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-semibold mb-2">
+        Curso: {{ selected_course.displayname|default:selected_course.fullname }}  
+        ({{ selected_course.shortname }}) - Sala: {{ selected_room.shortcode }}
+      </h3>
+
+      {% if selected_room.teacher_id == teacher.id %}
+        <div class="flex justify-end space-x-2">
+          <!-- Placeholder button -->
+          <button 
+            type="button"
+            class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
+          >
+            ⚙️ Funcionalidad extra (próximamente)
+          </button>
+
+          <!-- Close room button -->
+          <button 
+            type="button"
+            @click="$store.modal.deactivateRoomModal = true"
+            class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+          >
+            🔒 Cerrar sala
+          </button>
+        </div>
+      {% endif %}
+    </div>
+
     <p>Moodle Course ID: {{ selected_course.id }}</p>
     <p>Room Matrix ID: {{ selected_room.room_id }}</p>
     {% if selected_room.moodle_group %}

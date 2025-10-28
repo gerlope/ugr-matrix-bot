@@ -1,6 +1,6 @@
 import sys
 from django.db import IntegrityError
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
 from django.contrib import messages
@@ -31,7 +31,6 @@ def dashboard(request):
     selected_room_id = request.GET.get('room_id', None)
 
     data = get_data_for_dashboard(teacher, selected_room_id)
-
 
     return render(request, 'dashboard/dashboard.html', {
         'teacher': teacher,
@@ -155,3 +154,22 @@ def create_room(request):
             'create_room_form': form,
             'show_create_modal': "true",
         })
+    
+@require_POST
+@login_required(login_url='login')
+def deactivate_room(request, room_id):
+    teacher = request.session.get('teacher')
+    if not teacher:
+        return redirect('login')
+
+    room = get_object_or_404(Room.objects.using('postgresql'), id=room_id)
+
+    # Only the owner teacher can deactivate it
+    if room.teacher_id != teacher['id']:
+        messages.error(request, "No tienes permiso para cerrar esta sala.")
+        return redirect(f"{reverse('dashboard')}?room_id={room.id}")
+
+    room.active = False
+    room.save(using='postgresql')
+    messages.success(request, f"La sala '{room.shortcode}' ha sido cerrada correctamente.")
+    return redirect('dashboard')

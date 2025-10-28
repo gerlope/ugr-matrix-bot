@@ -36,7 +36,7 @@ def get_data_for_dashboard(teacher, selected_room_id = None):
 
 
     # Get all rooms belonging to this teacher from PostgreSQL
-    teacher_rooms = Room.objects.using('postgresql').filter(teacher_id=teacher['id'])
+    teacher_rooms = Room.objects.using('postgresql').filter(teacher_id=teacher['id'], active=True)
     general_rooms = Room.objects.using('postgresql').filter(teacher_id=None)
 
     course_list = []
