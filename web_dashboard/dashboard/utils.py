@@ -3,7 +3,8 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 from django.db.models import Sum, Max
 from pathlib import Path
-from .models import ExternalUser, Reaction, Room
+from .models import ExternalUser, Reaction, Room, Question, QuestionOption, ResponseOption, QuestionResponse
+from django.utils import timezone
 
 
 # add repo root (two levels above this views.py) to sys.path so "import config" works
@@ -16,6 +17,7 @@ def get_data_for_dashboard(teacher, selected_room_id = None):
     selected_room = None
     selected_course = None
     selected_students = None
+    selected_questions = None
 
     # Fetch courses from Moodle API
     endpoint = f"{MOODLE_URL}/webservice/rest/server.php"
@@ -62,6 +64,7 @@ def get_data_for_dashboard(teacher, selected_room_id = None):
             selected_course = data['selected_course']
             selected_room = data['selected_room']
             selected_students = data['selected_students']
+            selected_questions = data['selected_questions']
         
         course_list.append({
             'id': data.get('id'),
@@ -80,6 +83,7 @@ def get_data_for_dashboard(teacher, selected_room_id = None):
         'selected_room': selected_room,
         'selected_course': selected_course,
         'selected_students': selected_students,
+        'selected_questions': selected_questions,
     }
 
 
@@ -88,6 +92,7 @@ def process_course_data(course, general_rooms, teacher_rooms, teacher, selected_
     selected_course = None
     selected_reactions = None
     selected_students = None
+    selected_questions = None
     is_open = "false"
     course_id = course.get('id')
     general_room = next((room for room in general_rooms if room.shortcode == course.get('shortname')), None)
@@ -188,6 +193,95 @@ def process_course_data(course, general_rooms, teacher_rooms, teacher, selected_
                     'reactions': [r for r in selected_reactions if r['student_id'] == student.id],
                     'groups': moodle_user.get('groups', None) if moodle_user else []
                 })
+        # Fetch all questions for this selected room (including inactive / manual flags)
+        try:
+            room_db_id = selected_room.id if selected_room is not None else None
+            if room_db_id is not None:
+                qs = list(Question.objects.using('postgresql').filter(room_id=room_db_id).order_by('-created_at'))
+                qids = [q.id for q in qs]
+                question_options = {}
+                if qids:
+                    opts = QuestionOption.objects.using('postgresql').filter(question_id__in=qids).order_by('question_id', 'position')
+                    for opt in opts:
+                        question_options.setdefault(opt.question_id, []).append(opt)
+                now = timezone.now()
+                selected_questions = []
+                for q in qs:
+                    # If both start_at and end_at are missing, treat as NOT within window by default
+                    if q.start_at is None and q.end_at is None:
+                        within_window = False
+                    else:
+                        within_window = True
+                        try:
+                            within_window = ((q.start_at is None or now >= q.start_at) and (q.end_at is None or now <= q.end_at))
+                        except Exception:
+                            within_window = True
+
+                    # Determine whether now is before start or after end (for labeling)
+                    before_start = False
+                    after_end = False
+                    try:
+                        if q.start_at is not None and now < q.start_at:
+                            before_start = True
+                        if q.end_at is not None and now > q.end_at:
+                            after_end = True
+                    except Exception:
+                        pass
+
+                    # Active only if manual_active OR within the time window
+                    is_currently_active = bool(q.manual_active) or within_window
+                    selected_questions.append({
+                        'question': q,
+                        'options': question_options.get(q.id, []),
+                        'is_currently_active': is_currently_active,
+                        'within_window': within_window,
+                        'before_start': before_start,
+                        'after_end': after_end,
+                        'responses': []  # will be filled below if any
+                    })
+
+                # Attach responses for these questions (if any)
+                try:
+                    if qids:
+                        # Fetch responses and response_options
+                        resp_qs = list(QuestionResponse.objects.using('postgresql').filter(question_id__in=qids).order_by('-submitted_at'))
+                        resp_ids = [r.id for r in resp_qs]
+                        resp_opts_map = {}
+                        if resp_ids:
+                            resp_opts = ResponseOption.objects.using('postgresql').filter(response_id__in=resp_ids)
+                            for ro in resp_opts:
+                                resp_opts_map.setdefault(ro.response_id, []).append(ro.option_id)
+
+                        # Map student DB ids to matrix ids (for display)
+                        student_ids = list({r.student_id for r in resp_qs})
+                        students_map = {}
+                        if student_ids:
+                            users = ExternalUser.objects.using('postgresql').filter(id__in=student_ids)
+                            for u in users:
+                                students_map[u.id] = u
+
+                        # Build a map of question_id -> list of response dicts
+                        q_responses = {}
+                        for r in resp_qs:
+                            q_responses.setdefault(r.question_id, []).append({
+                                'id': r.id,
+                                'student_id': r.student_id,
+                                'student': students_map.get(r.student_id),
+                                'option_id': r.option_id,
+                                'option_ids': resp_opts_map.get(r.id, []),
+                                'answer_text': r.answer_text,
+                                'submitted_at': r.submitted_at,
+                                'score': getattr(r, 'score', None),
+                            })
+
+                        # Attach to selected_questions entries
+                        for entry in selected_questions:
+                            qobj = entry['question']
+                            entry['responses'] = q_responses.get(qobj.id, [])
+                except Exception as e:
+                    print(f"[WARN] Could not fetch question responses: {e}")
+        except Exception as e:
+            print(f"[WARN] Could not fetch questions for room {course.get('shortname')}: {e}")
     
     thread_results[index] = {
         'id': course_id,
@@ -203,4 +297,5 @@ def process_course_data(course, general_rooms, teacher_rooms, teacher, selected_
         'selected_course': selected_course,
         'selected_reactions': selected_reactions,
         'selected_students': selected_students,
+        'selected_questions': selected_questions,
     }

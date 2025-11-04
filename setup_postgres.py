@@ -4,7 +4,8 @@ Sincroniza usuarios y asignaturas de Moodle con Matrix y PostgreSQL.
 
 - Crea usuarios en Matrix si no existen.
 - Inserta usuarios en la tabla PostgreSQL `users` con su moodle_id y si son profesores.
-- Crea una sala Matrix por cada asignatura Moodle.
+- Crea una sala Matrix por cada asignatura Moodle y otra para profesores.
+- Desactiva salas antiguas en la base de datos.
 - Invita a los usuarios del curso correspondiente.
 """
 
@@ -26,14 +27,6 @@ from config import (MOODLE_URL, MOODLE_TOKEN,
 # ==============================
 # --- PostgreSQL ---
 PG_DSN = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-DB_CONFIG = {
-    "user": DB_USER,
-    "password": DB_PASSWORD,
-    "database": DB_NAME,
-    "host": DB_HOST,
-    "port": DB_PORT
-}
-
 # --- Parámetros generales ---
 INVITE_DELAY = 0.5
 ROOM_VISIBILITY = "private"
@@ -195,18 +188,43 @@ async def main():
                 #room_id = await create_room(session, token, cname, topic)
                 room_id = f"test_room_{cshortname}"
                 room_id_teachers = f"{room_id}_teachers"
-                await conn.execute("""
-                    INSERT INTO rooms (room_id, moodle_course_id, teacher_id, shortcode)
-                    VALUES ($1, $2, $3 , $4)
-                    ON CONFLICT (room_id) DO NOTHING
-                """, room_id, cid, None, cshortname)
-                await conn.execute("""
-                    INSERT INTO rooms (room_id, moodle_course_id, teacher_id, shortcode)
-                    VALUES ($1, $2, $3 , $4)
-                    ON CONFLICT (room_id) DO NOTHING
-                """, room_id_teachers, cid, None, cshortname+"_teachers")
 
-                print(f"[CREADA] Salas '{cname}' ({room_id} y {room_id_teachers})")
+                # Insert or replace active rooms in the database
+                async with conn.transaction():
+                    # First deactivate any previous active room with same teacher + shortcode
+                    await conn.execute("""
+                        UPDATE rooms
+                        SET active = FALSE
+                        WHERE teacher_id = $1
+                          AND shortcode = $2
+                          AND active = TRUE
+                    """, None, cshortname)
+
+                    # Then insert the new one as active
+                    await conn.execute("""
+                        INSERT INTO rooms (room_id, moodle_course_id, teacher_id, shortcode, active)
+                        VALUES ($1, $2, $3, $4, TRUE)
+                        ON CONFLICT (room_id) DO UPDATE
+                        SET room_id = EXCLUDED.room_id
+                    """, room_id, cid, None, cshortname)
+
+                    # And repeat for the teachers-only room
+                    await conn.execute("""
+                        UPDATE rooms
+                        SET active = FALSE
+                        WHERE teacher_id = $1
+                          AND shortcode = $2
+                          AND active = TRUE
+                    """, None, cshortname + "_teachers")
+
+                    await conn.execute("""
+                        INSERT INTO rooms (room_id, moodle_course_id, teacher_id, shortcode, active)
+                        VALUES ($1, $2, $3, $4, TRUE)
+                        ON CONFLICT (room_id) DO UPDATE
+                        SET room_id = EXCLUDED.room_id
+                    """, room_id_teachers, cid, None, cshortname + "_teachers")
+
+                print(f"[CREADA/ACTUALIZADA] Salas '{cname}' ({room_id} y {room_id_teachers})")
 
             for u in users:
                 email = u.get("email")

@@ -64,3 +64,75 @@ class Reaction(models.Model):
     def __str__(self):
         return f"{self.emoji} x{self.count} (teacher={self.teacher_id}, student={self.student_id})"
 
+
+class Question(models.Model):
+    id = models.AutoField(primary_key=True)
+    teacher_id = models.IntegerField()
+    room_id = models.IntegerField(null=True)
+    title = models.TextField(null=True, blank=True)
+    body = models.TextField()
+    qtype = models.TextField()  # stored as enum in PG; keep text here
+    start_at = models.DateTimeField(null=True, blank=True)
+    end_at = models.DateTimeField(null=True, blank=True)
+    manual_active = models.BooleanField(default=False)
+    allow_multiple_submissions = models.BooleanField(default=False)
+    allow_multiple_answers = models.BooleanField(default=False)
+    created_at = models.DateTimeField(null=True, auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'questions'
+
+    def __str__(self):
+        return self.title or f"Question {self.id}"
+
+
+class QuestionOption(models.Model):
+    id = models.AutoField(primary_key=True)
+    question_id = models.IntegerField()
+    option_key = models.TextField()
+    text = models.TextField()
+    is_correct = models.BooleanField(default=False)
+    position = models.IntegerField(default=0)
+
+    class Meta:
+        managed = False
+        db_table = 'question_options'
+
+    def __str__(self):
+        return f"{self.option_key}: {self.text}"
+
+
+class QuestionResponse(models.Model):
+    id = models.AutoField(primary_key=True)
+    question_id = models.IntegerField()
+    student_id = models.IntegerField()
+    option_id = models.IntegerField(null=True)
+    answer_text = models.TextField(null=True)
+    submitted_at = models.DateTimeField(null=True)
+    is_graded = models.BooleanField(default=False)
+    score = models.DecimalField(max_digits=6, decimal_places=2, null=True)
+    grader_id = models.IntegerField(null=True)
+    feedback = models.TextField(null=True)
+    response_version = models.IntegerField(default=1)
+    late = models.BooleanField(default=False)
+
+    class Meta:
+        managed = False
+        db_table = 'question_responses'
+
+    def __str__(self):
+        return f"Response {self.id} (q={self.question_id}, student={self.student_id})"
+
+
+class ResponseOption(models.Model):
+    response_id = models.IntegerField()
+    option_id = models.IntegerField()
+
+    class Meta:
+        managed = False
+        db_table = 'response_options'
+
+    def __str__(self):
+        return f"ResponseOption response={self.response_id} option={self.option_id}"
+

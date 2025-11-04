@@ -12,14 +12,17 @@ from pathlib import Path
 
 from .utils import get_data_for_dashboard
 from .models import Room, ExternalUser
-from .forms import ExternalLoginForm, CreateRoomForm
+from .forms import ExternalLoginForm, CreateRoomForm, CreateQuestionForm
+from django.db import connections, OperationalError
+from .models import Question, QuestionOption
+from django.utils import timezone
 
 
 # add repo root (two levels above this views.py) to sys.path so "import config" works
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from config import MOODLE_URL, MOODLE_TOKEN
+from config import HOMESERVER
 
 @login_required(login_url='login')
 def dashboard(request):
@@ -32,12 +35,16 @@ def dashboard(request):
 
     data = get_data_for_dashboard(teacher, selected_room_id)
 
+    # Questions are loaded by get_data_for_dashboard into selected_questions
+    questions_list = data.get('selected_questions', []) or []
+
     return render(request, 'dashboard/dashboard.html', {
         'teacher': teacher,
         'courses': data['courses'],
         'selected_room': data['selected_room'],
         'selected_course': data['selected_course'],
         'students': data['selected_students'],
+        'questions_list': questions_list,
     })
 
 
@@ -46,7 +53,7 @@ def external_login(request):
     if request.method == "POST":
         form = ExternalLoginForm(request.POST)
         if form.is_valid():
-            username = "@" + form.cleaned_data['username'] + ":matrix.example.org"
+            username = "@" + form.cleaned_data['username'] + ":" + HOMESERVER.split("//")[1].split("/")[0]
 
             try:
                 teacher = ExternalUser.objects.using('postgresql').filter(matrix_id=username).first()
@@ -173,3 +180,169 @@ def deactivate_room(request, room_id):
     room.save(using='postgresql')
     messages.success(request, f"La sala '{room.shortcode}' ha sido cerrada correctamente.")
     return redirect('dashboard')
+
+
+@require_POST
+@login_required(login_url='login')
+def create_question(request):
+    teacher = request.session.get('teacher')
+    if not teacher:
+        return redirect('login')
+
+    form = CreateQuestionForm(request.POST)
+    selected_room_id = request.POST.get('selected_room_id')
+
+    if not form.is_valid():
+        data = get_data_for_dashboard(teacher, selected_room_id)
+        return render(request, 'dashboard/dashboard.html', {
+            'teacher': teacher,
+            'courses': data['courses'],
+            'selected_room': data['selected_room'],
+            'selected_course': data['selected_course'],
+            'students': data['selected_students'],
+            'create_question_form': form,
+            'show_create_question_modal': 'true',
+        })
+
+    # permission: ensure teacher owns the room
+    room = None
+    if selected_room_id:
+        room = Room.objects.using('postgresql').filter(id=selected_room_id).first()
+
+    if not room or room.teacher_id != teacher['id']:
+        messages.error(request, "No tienes permiso para añadir preguntas en esta sala.")
+        return redirect(f"{reverse('dashboard')}?room_id={selected_room_id}")
+
+    # create question
+    try:
+        q = Question.objects.using('postgresql').create(
+            teacher_id=teacher['id'],
+            room_id=room.id,
+            title=form.cleaned_data.get('title') or None,
+            body=form.cleaned_data['body'],
+            qtype=form.cleaned_data['qtype'],
+            start_at=form.cleaned_data.get('start_at'),
+            end_at=form.cleaned_data.get('end_at'),
+            manual_active=False,
+            allow_multiple_submissions=form.cleaned_data.get('allow_multiple_submissions', False),
+            allow_multiple_answers=form.cleaned_data.get('allow_multiple_answers', False)
+        )
+
+        # gather dynamic option_* fields
+        options = []
+        for key, val in request.POST.items():
+            if key.startswith('option_') and val.strip():
+                options.append(val.strip())
+
+        # create options
+        for idx, opt_text in enumerate(options):
+            QuestionOption.objects.using('postgresql').create(
+                question_id=q.id,
+                option_key=chr(65 + (idx % 26)),
+                text=opt_text,
+                is_correct=False,
+                position=idx
+            )
+
+        messages.success(request, "Pregunta creada correctamente.")
+        return redirect(f"{reverse('dashboard')}?room_id={room.id}")
+    except Exception as e:
+        form.add_error(None, f"Error creando la pregunta: {e}")
+        data = get_data_for_dashboard(teacher, selected_room_id)
+        return render(request, 'dashboard/dashboard.html', {
+            'teacher': teacher,
+            'courses': data['courses'],
+            'selected_room': data['selected_room'],
+            'selected_course': data['selected_course'],
+            'students': data['selected_students'],
+            'create_question_form': form,
+            'show_create_question_modal': 'true',
+        })
+
+
+@require_POST
+@login_required(login_url='login')
+def toggle_question_active(request, question_id):
+    teacher = request.session.get('teacher')
+    if not teacher:
+        return redirect('login')
+
+    q = Question.objects.using('postgresql').filter(id=question_id).first()
+    if not q:
+        messages.error(request, "Pregunta no encontrada.")
+        return redirect('dashboard')
+
+    if q.teacher_id != teacher['id']:
+        messages.error(request, "No tienes permiso para modificar esta pregunta.")
+        return redirect('dashboard')
+
+    now = timezone.now()
+    try:
+        # If the question has no start_at and no end_at, the template shows manual-only buttons;
+        # in that case we should only toggle the manual_active override.
+        if q.start_at is None and q.end_at is None:
+            q.manual_active = not bool(q.manual_active)
+            q.save(using='postgresql')
+            messages.success(request, f"Campo manual_active actualizado (ahora={'sí' if q.manual_active else 'no'}).")
+            return redirect(f"{reverse('dashboard')}?room_id={q.room_id}")
+
+        # If the question has already finished (end_at in the past), use manual_active toggle instead
+        if q.end_at is not None and q.end_at < now:
+            q.manual_active = not bool(q.manual_active)
+            q.save(using='postgresql')
+            messages.success(request, f"Campo manual_active actualizado (ahora={'sí' if q.manual_active else 'no'}).")
+            return redirect(f"{reverse('dashboard')}?room_id={q.room_id}")
+
+        # If currently within window (active now), then 'finalizar ahora' -> set end_at to now
+        within_window = True
+        try:
+            within_window = ((q.start_at is None or now >= q.start_at) and (q.end_at is None or now <= q.end_at))
+        except Exception:
+            within_window = True
+
+        if within_window:
+            # finalize now
+            q.end_at = now
+            # ensure manual_active is False when using window-based control
+            q.manual_active = False
+            q.save(using='postgresql')
+            messages.success(request, "Pregunta finalizada ahora (end_at actualizada).")
+            return redirect(f"{reverse('dashboard')}?room_id={q.room_id}")
+
+        # Otherwise (not within window and not finished), start now by setting start_at to now
+        q.start_at = now
+        # ensure manual_active is False when using window-based control
+        q.manual_active = False
+        q.save(using='postgresql')
+        messages.success(request, "Pregunta iniciada ahora (start_at actualizada).")
+    except Exception as e:
+        messages.error(request, f"Error al actualizar la pregunta: {e}")
+
+    return redirect(f"{reverse('dashboard')}?room_id={q.room_id}")
+
+
+
+@require_POST
+@login_required(login_url='login')
+def delete_question(request, question_id):
+    teacher = request.session.get('teacher')
+    if not teacher:
+        return redirect('login')
+
+    q = Question.objects.using('postgresql').filter(id=question_id).first()
+    if not q:
+        messages.error(request, "Pregunta no encontrada.")
+        return redirect('dashboard')
+
+    if q.teacher_id != teacher['id']:
+        messages.error(request, "No tienes permiso para eliminar esta pregunta.")
+        return redirect('dashboard')
+
+    try:
+        # delete the question and cascade to options/responses
+        q.delete(using='postgresql')
+        messages.success(request, "Pregunta eliminada correctamente.")
+    except Exception as e:
+        messages.error(request, f"Error al eliminar la pregunta: {e}")
+
+    return redirect(f"{reverse('dashboard')}?room_id={q.room_id}")

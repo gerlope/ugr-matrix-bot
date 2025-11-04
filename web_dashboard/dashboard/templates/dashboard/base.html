@@ -11,6 +11,7 @@
 
 <body 
   data-show-create-modal="{{ show_create_modal|default:'false' }}"
+  data-show-create-question-modal="{{ show_create_question_modal|default:'false' }}"
   class="bg-gray-100 text-gray-800 h-full flex flex-col"
 >
   <!-- Header -->
@@ -39,6 +40,8 @@
   <!-- Modal Crear Sala -->
   {% include 'dashboard/partials/create_room_modal.html' %}
   {% include 'dashboard/partials/deactivate_room_modal.html' %}
+  {% include 'dashboard/partials/create_question_modal.html' %}
+  {% include 'dashboard/partials/delete_question_modal.html' %}
 
   <script>
     document.addEventListener('alpine:init', () => {
@@ -46,8 +49,13 @@
       Alpine.store('modal', {
         createRoomModal: body.dataset.showCreateModal === "true",
         deactivateRoomModal: false,
+        createQuestionModal: body.dataset.showCreateQuestionModal === "true",
+        deleteQuestionModal: false,
+        deleteQuestionId: null,
+        deleteQuestionTitle: ''
       });
     });
   </script>
+
 </body>
 </html>

@@ -24,9 +24,13 @@ CREATE TABLE IF NOT EXISTS rooms (
     shortcode TEXT NOT NULL,               -- short identifier used by the teacher
     moodle_group TEXT,                     -- optional Moodle group, if present only that group has access
     created_at TIMESTAMP DEFAULT NOW(),
-    active BOOLEAN DEFAULT TRUE,           -- whether the room is active
-    UNIQUE (teacher_id, shortcode)         -- shortcode unique per teacher
+    active BOOLEAN DEFAULT TRUE           -- whether the room is active
 );
+
+-- Ensure shortcode is unique per teacher only when the room is active
+CREATE UNIQUE INDEX IF NOT EXISTS unique_active_shortcode_per_teacher
+    ON rooms (teacher_id, shortcode)
+    WHERE active = TRUE;
 
 -- 🔹 Index for fast lookup by Matrix room ID
 CREATE INDEX IF NOT EXISTS idx_rooms_room_id ON rooms(room_id);
@@ -107,5 +111,86 @@ BEGIN
     END IF;
 END
 $$;
+
+-- ============================================
+ 
+-- ============================================
+-- Questions / Quiz feature
+-- ============================================
+
+-- Create an enum for question types (multiple choice, true/false, short answer, numeric, essay)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'question_type') THEN
+        CREATE TYPE question_type AS ENUM (
+            'multiple_choice',
+            'true_false',
+            'short_answer',
+            'numeric',
+            'essay'
+        );
+    END IF;
+END
+$$;
+
+-- Questions table: metadata and availability window
+CREATE TABLE IF NOT EXISTS questions (
+    id SERIAL PRIMARY KEY,
+    teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    room_id INTEGER NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    title TEXT,
+    body TEXT NOT NULL,
+    qtype question_type NOT NULL,
+    start_at TIMESTAMP WITH TIME ZONE,
+    end_at TIMESTAMP WITH TIME ZONE,
+    manual_active BOOLEAN DEFAULT FALSE,
+    allow_multiple_submissions BOOLEAN DEFAULT FALSE,
+    allow_multiple_answers BOOLEAN DEFAULT FALSE, -- for multi-select questions
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_questions_room_start_end ON questions(room_id, start_at, end_at);
+
+-- Options for questions (used for multiple choice / true-false)
+CREATE TABLE IF NOT EXISTS question_options (
+    id SERIAL PRIMARY KEY,
+    question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    option_key TEXT NOT NULL,
+    text TEXT NOT NULL,
+    is_correct BOOLEAN DEFAULT FALSE,
+    position INTEGER DEFAULT 0,
+    UNIQUE (question_id, option_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_question_options_qid ON question_options(question_id);
+
+-- Responses: one row per submission. Answers stored in answer_text for free-text; option selections stored in response_options (below).
+CREATE TABLE IF NOT EXISTS question_responses (
+    id SERIAL PRIMARY KEY,
+    question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    option_id INTEGER NULL REFERENCES question_options(id) ON DELETE SET NULL,
+    answer_text TEXT NULL,
+    submitted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    is_graded BOOLEAN DEFAULT FALSE,
+    score NUMERIC(6,2) NULL,
+    grader_id INTEGER NULL REFERENCES users(id),
+    feedback TEXT NULL,
+    response_version INTEGER DEFAULT 1,
+    late BOOLEAN DEFAULT FALSE,
+    UNIQUE (question_id, student_id, response_version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_responses_question_student ON question_responses(question_id, student_id);
+CREATE INDEX IF NOT EXISTS idx_responses_question_submitted ON question_responses(question_id, submitted_at);
+
+-- Mapping table to allow multiple selected options per response (for multi-select questions)
+CREATE TABLE IF NOT EXISTS response_options (
+    response_id INTEGER NOT NULL REFERENCES question_responses(id) ON DELETE CASCADE,
+    option_id INTEGER NOT NULL REFERENCES question_options(id) ON DELETE CASCADE,
+    PRIMARY KEY (response_id, option_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_response_options_option ON response_options(option_id);
 
 -- ============================================

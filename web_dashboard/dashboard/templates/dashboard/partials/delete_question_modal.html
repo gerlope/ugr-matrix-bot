@@ -1,0 +1,28 @@
+<!-- Modal para confirmar eliminación de pregunta -->
+<div
+  x-show="$store.modal.deleteQuestionModal"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  x-transition.opacity
+  x-data="{}"
+  @keydown.escape.window="$store.modal.deleteQuestionModal = false"
+  @click.self="$store.modal.deleteQuestionModal = false"
+>
+  <div class="bg-white rounded-lg shadow-lg p-6 relative" x-transition.opacity @click.stop>
+    <h3 class="text-lg font-semibold mb-4 text-red-600">Eliminar pregunta</h3>
+    <p class="text-gray-700 mb-6">
+      ¿Estás seguro de que deseas eliminar la pregunta
+      <strong class="font-semibold text-gray-900">"<span x-text="$store.modal.deleteQuestionTitle"></span>"</strong>?
+      <br><span class="text-sm text-gray-500">Esta acción eliminará la pregunta y todas sus opciones y respuestas asociadas.</span>
+    </p>
+
+    {% url 'delete_question' 0 as delete_zero %}
+
+    <form method="POST" x-bind:action="'{{ delete_zero }}'.replace('/0/', '/' + $store.modal.deleteQuestionId + '/')">
+      {% csrf_token %}
+      <div class="flex justify-end space-x-2">
+        <button type="button" @click="$store.modal.deleteQuestionModal = false" class="px-4 py-2 border rounded hover:bg-gray-100 transition">Cancelar</button>
+        <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">Eliminar</button>
+      </div>
+    </form>
+  </div>
+</div>
