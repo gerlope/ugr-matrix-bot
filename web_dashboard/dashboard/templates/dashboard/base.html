@@ -10,8 +10,10 @@
 </head>
 
 <body 
-  data-show-create-modal="{{ show_create_modal|default:'false' }}"
+  data-show-create-room-modal="{{ show_create_room_modal|default:'false' }}"
   data-show-create-question-modal="{{ show_create_question_modal|default:'false' }}"
+  data-show-create-availability-modal="{{ show_create_availability_modal|default:'false' }}"
+  data-show-edit-availability-modal="{{ show_edit_availability_modal|default:'false' }}"
   class="bg-gray-100 text-gray-800 h-full flex flex-col"
 >
   <!-- Header -->
@@ -38,21 +40,34 @@
   </div>
 
   <!-- Modal Crear Sala -->
-  {% include 'dashboard/partials/create_room_modal.html' %}
-  {% include 'dashboard/partials/deactivate_room_modal.html' %}
-  {% include 'dashboard/partials/create_question_modal.html' %}
-  {% include 'dashboard/partials/delete_question_modal.html' %}
+  {% include 'dashboard/partials/modals/create_room.html' %}
+  {% include 'dashboard/partials/modals/deactivate_room.html' %}
+  {% include 'dashboard/partials/modals/create_question.html' %}
+  {% include 'dashboard/partials/modals/create_availability.html' %}
+  {% include 'dashboard/partials/modals/edit_availability.html' %}
+  {% include 'dashboard/partials/modals/delete_question.html' %}
+  {% include 'dashboard/partials/modals/delete_availability.html' %}
 
   <script>
     document.addEventListener('alpine:init', () => {
       const body = document.querySelector('body');
       Alpine.store('modal', {
-        createRoomModal: body.dataset.showCreateModal === "true",
+        createRoomModal: body.dataset.showCreateRoomModal === "true",
         deactivateRoomModal: false,
         createQuestionModal: body.dataset.showCreateQuestionModal === "true",
         deleteQuestionModal: false,
         deleteQuestionId: null,
-        deleteQuestionTitle: ''
+        deleteQuestionTitle: '',
+        // availability deletion modal state
+        deleteAvailabilityModal: false,
+        deleteAvailabilityId: null,
+        deleteAvailabilityLabel: '',
+  // create/edit availability modal state
+  createAvailabilityModal: body.dataset.showCreateAvailabilityModal === "true",
+  editAvailabilityModal: body.dataset.showEditAvailabilityModal === "true",
+  editAvailabilityId: null,
+  editAvailabilityStart: '',
+  editAvailabilityEnd: '',
       });
     });
   </script>

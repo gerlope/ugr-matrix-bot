@@ -1,0 +1,96 @@
+<div 
+  x-show="$store.modal.createAvailabilityModal" 
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  x-transition.opacity
+  x-data="{}"
+  @keydown.escape.window="$store.modal.createAvailabilityModal = false"
+  @click.self="$store.modal.createAvailabilityModal = false"
+>
+  <div class="bg-white rounded-lg shadow-lg w-96 p-6 relative" @click.stop x-transition.opacity>
+    <h3 class="text-lg font-semibold mb-4">Añadir intervalo de disponibilidad</h3>
+
+    {% if create_availability_form and create_availability_form.non_field_errors %}
+      <div class="mb-4 p-2 bg-red-100 text-red-700 rounded">
+        {% for error in create_availability_form.non_field_errors %}
+          <p>{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+  <form id="create_availability_form" method="POST" action="{% url 'create_availability' %}">
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label class="block mb-1 font-medium">Día de la semana</label>
+        {% with selected_day=create_availability_form.day_of_week.value|default_if_none:'' %}
+        <select name="day_of_week" class="w-full border rounded px-3 py-2">
+          <option value="Monday" {% if selected_day == 'Monday' %}selected{% endif %}>Lunes</option>
+          <option value="Tuesday" {% if selected_day == 'Tuesday' %}selected{% endif %}>Martes</option>
+          <option value="Wednesday" {% if selected_day == 'Wednesday' %}selected{% endif %}>Miércoles</option>
+          <option value="Thursday" {% if selected_day == 'Thursday' %}selected{% endif %}>Jueves</option>
+          <option value="Friday" {% if selected_day == 'Friday' %}selected{% endif %}>Viernes</option>
+          <option value="Saturday" {% if selected_day == 'Saturday' %}selected{% endif %}>Sábado</option>
+          <option value="Sunday" {% if selected_day == 'Sunday' %}selected{% endif %}>Domingo</option>
+        </select>
+        {% endwith %}
+        {% if create_availability_form and create_availability_form.day_of_week.errors %}
+          <p class="text-red-600 text-sm mt-1">{{ create_availability_form.day_of_week.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <div class="mb-3 grid grid-cols-2 gap-3">
+        <div>
+          <label class="block mb-1 font-medium">Inicio</label>
+          <input type="time" id="create_start_time" name="start_time" class="w-full border rounded px-3 py-2" value="{{ create_availability_form.start_time.value|default_if_none:'' }}" required>
+          {% if create_availability_form and create_availability_form.start_time.errors %}
+            <p class="text-red-600 text-sm mt-1">{{ create_availability_form.start_time.errors.0 }}</p>
+          {% endif %}
+        </div>
+        <div>
+          <label class="block mb-1 font-medium">Fin</label>
+          <input type="time" id="create_end_time" name="end_time" class="w-full border rounded px-3 py-2" value="{{ create_availability_form.end_time.value|default_if_none:'' }}" required>
+          {% if create_availability_form and create_availability_form.end_time.errors %}
+            <p class="text-red-600 text-sm mt-1">{{ create_availability_form.end_time.errors.0 }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <p class="text-sm text-gray-600 mb-3">Horario permitido: <strong>07:00</strong> — <strong>21:00</strong></p>
+      <p id="create_time_error" class="text-red-600 text-sm mb-3 hidden"></p>
+
+      <div class="flex justify-end space-x-2">
+        <button type="button" @click="$store.modal.createAvailabilityModal = false" class="px-4 py-2 border rounded hover:bg-gray-100">Cancelar</button>
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Añadir</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const MIN = '07:00';
+    const MAX = '21:00';
+  const form = document.getElementById('create_availability_form');
+  if (!form) return;
+    const st = document.getElementById('create_start_time');
+    const et = document.getElementById('create_end_time');
+    const err = document.getElementById('create_time_error');
+
+    function showError(msg){
+      if (!err) return;
+      err.textContent = msg;
+      err.classList.remove('hidden');
+    }
+    function hideError(){ if (err) { err.textContent=''; err.classList.add('hidden'); } }
+
+    form.addEventListener('submit', function(ev){
+      hideError();
+      const s = st && st.value ? st.value : '';
+      const e = et && et.value ? et.value : '';
+      if (!s || !e){ showError('Por favor, indique hora de inicio y fin.'); ev.preventDefault(); return; }
+      if (s >= e){ showError('La hora de inicio debe ser anterior a la hora de fin.'); ev.preventDefault(); return; }
+      if (s < MIN || e > MAX){ showError(`Los intervalos deben estar dentro de ${MIN} — ${MAX}.`); ev.preventDefault(); return; }
+      // otherwise allow submit
+    });
+  })();
+</script>

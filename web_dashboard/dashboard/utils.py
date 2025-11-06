@@ -13,6 +13,78 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from config import MOODLE_URL, MOODLE_TOKEN
 
+
+def build_availability_display(avail_rows, timeline_start_hour=7, timeline_end_hour=21):
+    """Builds availability dict, days_with_slots and timeline hours for templates.
+
+    Returns a dict with keys: en_to_es, timeline_hours, availability, days_with_slots,
+    timeline_start_hour, timeline_end_hour, timeline_span
+    """
+    en_to_es = {
+        'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miércoles',
+        'Thursday': 'Jueves', 'Friday': 'Viernes', 'Saturday': 'Sábado', 'Sunday': 'Domingo'
+    }
+    timeline_span = timeline_end_hour - timeline_start_hour
+
+    # Initialize availability dict
+    availability = {v: [] for v in en_to_es.values()}
+
+    for a in avail_rows:
+        day_en = (a.day_of_week or '')
+        day_es = en_to_es.get(day_en, day_en)
+        # defaults
+        left_pct = 0.0
+        width_pct = 0.0
+        top_pct = 0.0
+        height_pct = 0.0
+        try:
+            sh = a.start_time.hour + a.start_time.minute / 60.0
+            eh = a.end_time.hour + a.end_time.minute / 60.0
+            # clamp to timeline window
+            sh_clamped = max(timeline_start_hour, min(sh, timeline_end_hour))
+            eh_clamped = max(timeline_start_hour, min(eh, timeline_end_hour))
+            left_pct = ((sh_clamped - timeline_start_hour) / timeline_span) * 100
+            width_pct = ((max(eh_clamped, sh_clamped) - sh_clamped) / timeline_span) * 100
+            # For vertical rendering we map left->top and width->height
+            top_pct = left_pct
+            height_pct = width_pct
+            start_s = a.start_time.strftime('%H:%M') if a.start_time else ''
+            end_s = a.end_time.strftime('%H:%M') if a.end_time else ''
+        except Exception:
+            # fallback values if time parsing fails
+            start_s = str(a.start_time)
+            end_s = str(a.end_time)
+            left_pct = 0.0
+            width_pct = 0.0
+            top_pct = 0.0
+            height_pct = 0.0
+
+        availability.setdefault(day_es, []).append({
+            'id': getattr(a, 'id', None),
+            'start': start_s,
+            'end': end_s,
+            'left_pct': left_pct,
+            'width_pct': width_pct,
+            'top_pct': top_pct,
+            'height_pct': height_pct,
+        })
+
+    week_days = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
+    timeline_hours = list(range(timeline_start_hour, timeline_end_hour))
+    days_with_slots = []
+    for d in week_days:
+        days_with_slots.append({'day': d, 'slots': availability.get(d, [])})
+
+    return {
+        'en_to_es': en_to_es,
+        'timeline_hours': timeline_hours,
+        'availability': availability,
+        'days_with_slots': days_with_slots,
+        'timeline_start_hour': timeline_start_hour,
+        'timeline_end_hour': timeline_end_hour,
+        'timeline_span': timeline_span,
+    }
+
 def get_data_for_dashboard(teacher, selected_room_id = None):
     selected_room = None
     selected_course = None

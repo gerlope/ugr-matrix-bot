@@ -10,8 +10,8 @@ from django.contrib.auth import login
 from django.contrib.auth.models import User
 from pathlib import Path
 
-from .utils import get_data_for_dashboard
-from .models import Room, ExternalUser
+from .utils import get_data_for_dashboard, build_availability_display
+from .models import Room, ExternalUser, TeacherAvailability
 from .forms import ExternalLoginForm, CreateRoomForm, CreateQuestionForm
 from django.db import connections, OperationalError
 from .models import Question, QuestionOption
@@ -45,7 +45,124 @@ def dashboard(request):
         'selected_course': data['selected_course'],
         'students': data['selected_students'],
         'questions_list': questions_list,
+        'selected_page': 'dashboard',
     })
+
+
+@login_required(login_url='login')
+def tutoring_schedule(request):
+    teacher = request.session.get('teacher')
+    if not teacher:
+        return redirect('login')
+
+    # reuse get_data_for_dashboard to populate the sidebar courses
+    data = get_data_for_dashboard(teacher, None)
+
+    # Fetch availability rows for this teacher from external DB and build display data
+    avail_rows = TeacherAvailability.objects.using('postgresql').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
+    avail_display = build_availability_display(avail_rows, timeline_start_hour=7, timeline_end_hour=21)
+    days_with_slots = avail_display['days_with_slots']
+    timeline_hours = avail_display['timeline_hours']
+    availability = avail_display['availability']
+
+    week_days = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
+
+    return render(request, 'dashboard/schedule.html', {
+        'teacher': teacher,
+        'courses': data['courses'],
+        'selected_room': data['selected_room'],
+        'selected_course': data['selected_course'],
+        'selected_page': 'schedule',
+        'week_days': week_days,
+        'availability': availability,
+        'timeline_hours': timeline_hours,
+        'days_with_slots': days_with_slots,
+    })
+
+
+@require_POST
+@login_required(login_url='login')
+def create_availability(request):
+    teacher = request.session.get('teacher')
+    if not teacher:
+        return redirect('login')
+
+    from .forms import CreateAvailabilityForm
+    form = CreateAvailabilityForm(request.POST)
+
+    if not form.is_valid():
+        # re-render schedule with form errors and show modal
+        data = get_data_for_dashboard(teacher, None)
+
+        # recompute availability and days_with_slots using utility
+        avail_rows = TeacherAvailability.objects.using('postgresql').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
+        avail_display = build_availability_display(avail_rows, timeline_start_hour=7, timeline_end_hour=21)
+        days_with_slots = avail_display['days_with_slots']
+        timeline_hours = avail_display['timeline_hours']
+
+        week_days = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
+
+        return render(request, 'dashboard/schedule.html', {
+            'teacher': teacher,
+            'courses': data['courses'],
+            'selected_room': data['selected_room'],
+            'selected_course': data['selected_course'],
+            'selected_page': 'schedule',
+            'week_days': week_days,
+            'timeline_hours': timeline_hours,
+            'days_with_slots': days_with_slots,
+            'create_availability_form': form,
+            'show_create_availability_modal': 'true',
+        })
+
+    # validate no overlap with existing availabilities
+    day = form.cleaned_data['day_of_week']
+    st = form.cleaned_data['start_time']
+    et = form.cleaned_data['end_time']
+
+    existing = TeacherAvailability.objects.using('postgresql').filter(teacher_id=teacher['id'], day_of_week=day)
+    for a in existing:
+        try:
+            if (st < a.end_time and et > a.start_time):
+                form.add_error(None, 'El intervalo se solapa con otro existente (%s - %s).' % (a.start_time.strftime('%H:%M'), a.end_time.strftime('%H:%M')))
+                data = get_data_for_dashboard(teacher, None)
+
+                # recompute availability/days_with_slots using utility
+                avail_rows = TeacherAvailability.objects.using('postgresql').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
+                avail_display = build_availability_display(avail_rows, timeline_start_hour=7, timeline_end_hour=21)
+                days_with_slots = avail_display['days_with_slots']
+                timeline_hours = avail_display['timeline_hours']
+
+                week_days = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
+
+                return render(request, 'dashboard/schedule.html', {
+                    'teacher': teacher,
+                    'courses': data['courses'],
+                    'selected_room': data['selected_room'],
+                    'selected_course': data['selected_course'],
+                    'selected_page': 'schedule',
+                    'week_days': week_days,
+                    'timeline_hours': timeline_hours,
+                    'days_with_slots': days_with_slots,
+                    'create_availability_form': form,
+                    'show_create_availability_modal': 'true',
+                })
+        except Exception:
+            continue
+
+    # create availability
+    try:
+        TeacherAvailability.objects.using('postgresql').create(
+            teacher_id=teacher['id'],
+            day_of_week=day,
+            start_time=st,
+            end_time=et
+        )
+        messages.success(request, 'Intervalo creado correctamente.')
+    except Exception as e:
+        messages.error(request, f'Error al crear el intervalo: {e}')
+
+    return redirect('tutoring_schedule')
 
 
 
@@ -89,10 +206,156 @@ def external_login(request):
 
     return render(request, "dashboard/login.html", {"form": form})
 
+
+@require_POST
+@login_required(login_url='login')
+def delete_availability(request):
+    """Delete a teacher availability slot (POST: avail_id).
+
+    Only the logged-in teacher may delete their own availability rows.
+    """
+    teacher = request.session.get('teacher')
+    if not teacher:
+        return redirect('login')
+
+    try:
+        avail_id = int(request.POST.get('avail_id'))
+    except Exception:
+        messages.error(request, "ID de disponibilidad inválido.")
+        return redirect('tutoring_schedule')
+
+    a = TeacherAvailability.objects.using('postgresql').filter(id=avail_id).first()
+    if not a:
+        messages.error(request, "Disponibilidad no encontrada.")
+        return redirect('tutoring_schedule')
+
+    if a.teacher_id != teacher['id']:
+        messages.error(request, "No tienes permiso para eliminar esta disponibilidad.")
+        return redirect('tutoring_schedule')
+
+    try:
+        # instance delete on external DB
+        a.delete(using='postgresql')
+        messages.success(request, "Intervalo eliminado correctamente.")
+    except Exception as e:
+        messages.error(request, f"Error al eliminar la disponibilidad: {e}")
+
+    return redirect('tutoring_schedule')
+
+
+@require_POST
+@login_required(login_url='login')
+def edit_availability(request):
+    """Edit an existing availability slot (POST: avail_id, start_time, end_time)."""
+    teacher = request.session.get('teacher')
+    if not teacher:
+        return redirect('login')
+
+    from .forms import EditAvailabilityForm
+    form = EditAvailabilityForm(request.POST)
+
+    try:
+        avail_id = int(request.POST.get('avail_id'))
+    except Exception:
+        messages.error(request, "ID de disponibilidad inválido.")
+        return redirect('tutoring_schedule')
+
+    a = TeacherAvailability.objects.using('postgresql').filter(id=avail_id).first()
+    if not a:
+        messages.error(request, "Disponibilidad no encontrada.")
+        return redirect('tutoring_schedule')
+
+    if a.teacher_id != teacher['id']:
+        messages.error(request, "No tienes permiso para editar esta disponibilidad.")
+        return redirect('tutoring_schedule')
+
+    # common helpers used when re-rendering the schedule (used below in overlap/error paths)
+    en_to_es = {
+        'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miércoles',
+        'Thursday': 'Jueves', 'Friday': 'Viernes', 'Saturday': 'Sábado', 'Sunday': 'Domingo'
+    }
+    timeline_start_hour = 7
+    timeline_end_hour = 21
+    timeline_span = timeline_end_hour - timeline_start_hour
+
+    if not form.is_valid():
+        # re-render schedule with form errors and show edit modal
+        data = get_data_for_dashboard(teacher, None)
+
+        # recompute availability/days_with_slots using helper
+        avail_rows = TeacherAvailability.objects.using('postgresql').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
+        avail_display = build_availability_display(avail_rows, timeline_start_hour=timeline_start_hour, timeline_end_hour=timeline_end_hour)
+        days_with_slots = avail_display['days_with_slots']
+        timeline_hours = avail_display['timeline_hours']
+        week_days = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
+
+        return render(request, 'dashboard/schedule.html', {
+            'teacher': teacher,
+            'courses': data['courses'],
+            'selected_room': data['selected_room'],
+            'selected_course': data['selected_course'],
+            'selected_page': 'schedule',
+            'week_days': week_days,
+            'timeline_hours': timeline_hours,
+            'days_with_slots': days_with_slots,
+            'edit_availability_form': form,
+            'show_edit_availability_modal': 'true',
+            'edit_availability_id': avail_id,
+        })
+
+    # validate no overlap with existing availabilities (exclude self)
+    st = form.cleaned_data['start_time']
+    et = form.cleaned_data['end_time']
+    day = a.day_of_week
+
+    existing = TeacherAvailability.objects.using('postgresql').filter(teacher_id=teacher['id'], day_of_week=day).exclude(id=avail_id)
+    for ex in existing:
+        try:
+            if (st < ex.end_time and et > ex.start_time):
+                form.add_error(None, 'El intervalo se solapa con otro existente (%s - %s).' % (ex.start_time.strftime('%H:%M'), ex.end_time.strftime('%H:%M')))
+                data = get_data_for_dashboard(teacher, None)
+
+                # recompute availability/days_with_slots using helper
+                avail_rows = TeacherAvailability.objects.using('postgresql').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
+                avail_display = build_availability_display(avail_rows, timeline_start_hour=timeline_start_hour, timeline_end_hour=timeline_end_hour)
+                days_with_slots = avail_display['days_with_slots']
+                timeline_hours = avail_display['timeline_hours']
+                week_days = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
+
+                return render(request, 'dashboard/schedule.html', {
+                    'teacher': teacher,
+                    'courses': data['courses'],
+                    'selected_room': data['selected_room'],
+                    'selected_course': data['selected_course'],
+                    'selected_page': 'schedule',
+                    'week_days': week_days,
+                    'timeline_hours': timeline_hours,
+                    'days_with_slots': days_with_slots,
+                    'edit_availability_form': form,
+                    'show_edit_availability_modal': 'true',
+                    'edit_availability_id': avail_id,
+                })
+        except Exception:
+            continue
+
+    # perform update
+    try:
+        a.start_time = st
+        a.end_time = et
+        a.save(using='postgresql')
+        messages.success(request, 'Intervalo actualizado correctamente.')
+    except Exception as e:
+        messages.error(request, f'Error al actualizar el intervalo: {e}')
+
+    return redirect('tutoring_schedule')
+
 @require_POST
 def create_room(request):
     teacher = request.session.get('teacher')
     form = CreateRoomForm(request.POST)
+
+    selected_room_id = request.POST.get('selected_room_id', None)
+    print(f"[DEBUG] create_room called with selected_room_id={selected_room_id}")
 
     if not form.is_valid():
         data = get_data_for_dashboard(teacher, selected_room_id)
@@ -105,9 +368,6 @@ def create_room(request):
             'create_room_form': form,
             'show_create_modal': "true",
         })
-    
-    selected_room_id = request.POST.get('selected_room_id', None)
-    print(f"[DEBUG] create_room called with selected_room_id={selected_room_id}")
     
     course_id = form.cleaned_data['course_id']
     shortcode = form.cleaned_data['shortcode']
@@ -228,21 +488,60 @@ def create_question(request):
             allow_multiple_answers=form.cleaned_data.get('allow_multiple_answers', False)
         )
 
-        # gather dynamic option_* fields
-        options = []
+        # gather dynamic option_* fields into an index-ordered list
+        options_map = {}
         for key, val in request.POST.items():
-            if key.startswith('option_') and val.strip():
-                options.append(val.strip())
+            if key.startswith('option_') and val and val.strip():
+                try:
+                    idx = int(key.split('_', 1)[1])
+                except Exception:
+                    continue
+                options_map[idx] = val.strip()
+        options = [options_map[i] for i in sorted(options_map.keys())]
 
-        # create options
-        for idx, opt_text in enumerate(options):
-            QuestionOption.objects.using('postgresql').create(
-                question_id=q.id,
-                option_key=chr(65 + (idx % 26)),
-                text=opt_text,
-                is_correct=False,
-                position=idx
-            )
+        qtype = form.cleaned_data.get('qtype')
+
+        # create options and mark correct ones based on posted flags
+        if qtype == 'short_answer' or qtype == 'numeric':
+            # store expected answer as a single option (is_correct=True)
+            expected = request.POST.get('expected_answer', '').strip()
+            if expected:
+                QuestionOption.objects.using('postgresql').create(
+                    question_id=q.id,
+                    option_key='ANSWER',
+                    text=expected,
+                    is_correct=True,
+                    position=0
+                )
+        elif qtype == 'true_false':
+            # options should be provided as option_0=Verdadero, option_1=Falso (hidden inputs)
+            tf_correct = request.POST.get('tf_correct')  # '0' or '1'
+            for idx, opt_text in enumerate(options):
+                is_correct = (str(idx) == str(tf_correct)) if tf_correct is not None else False
+                QuestionOption.objects.using('postgresql').create(
+                    question_id=q.id,
+                    option_key=chr(65 + (idx % 26)),
+                    text=opt_text,
+                    is_correct=is_correct,
+                    position=idx
+                )
+        else:
+            # multiple_choice (default): support single-selection (radio) or multi-selection (checkbox)
+            single_choice = request.POST.get('option_correct_single')
+            for idx, opt_text in enumerate(options):
+                if single_choice is not None and single_choice != '':
+                    is_correct = (str(idx) == str(single_choice))
+                else:
+                    correct_flag = request.POST.get(f'option_correct_{idx}')
+                    is_correct = bool(correct_flag)
+
+                QuestionOption.objects.using('postgresql').create(
+                    question_id=q.id,
+                    option_key=chr(65 + (idx % 26)),
+                    text=opt_text,
+                    is_correct=is_correct,
+                    position=idx
+                )
 
         messages.success(request, "Pregunta creada correctamente.")
         return redirect(f"{reverse('dashboard')}?room_id={room.id}")

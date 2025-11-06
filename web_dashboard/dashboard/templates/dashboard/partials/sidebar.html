@@ -1,7 +1,7 @@
 <!-- Sidebar: fijo en escritorio, deslizante en móvil -->
 <aside 
-  class="fixed inset-y-0 left-0 w-64 bg-white border-r shadow-lg transform transition-transform duration-300 ease-in-out z-30
-         lg:static lg:translate-x-0"
+  class="fixed inset-y-0 left-0 w-64 bg-white border-r shadow-lg transform transition-transform duration-300 ease-in-out z-30 pb-6 lg:static lg:translate-x-0"
+  style="padding-bottom: env(safe-area-inset-bottom, 1.5rem);"
   :class="{'-translate-x-full': !sidebarOpen, 'translate-x-0': sidebarOpen}"
 >
   <!-- Botón cerrar visible solo en móvil -->
@@ -18,6 +18,16 @@
   <!-- Contenido del menú -->
   <nav class="p-4 flex flex-col h-full overflow-y-auto">
     <ul class="flex-1">
+      <li class="mb-2">
+        <a href="{% url 'tutoring_schedule' %}" class="block px-4 py-2 rounded transition flex items-center gap-3
+             {% if selected_page == 'schedule' %} bg-blue-600 text-white shadow-md ring-1 ring-blue-200 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-50 {% endif %}">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <path d="M16 2v4M8 2v4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span class="font-medium">Horario de tutorías</span>
+        </a>
+      </li>
       {% for course in courses %}
       <li x-data="{ open: {{ course.is_open }} }" class="mb-2">
         <button 
@@ -45,18 +55,25 @@
           {% if course.general_room %}
           <li>
             <a href="{% url 'dashboard' %}?room_id={{ course.general_room.id }}"
-               class="block px-4 py-1 rounded transition
+               class="block px-4 py-1 rounded transition flex items-center gap-2
                     {% if selected_room.id == course.general_room.id %} bg-blue-100 text-blue-700 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-100 {% endif %}">
-              🏠 General
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 9.5L12 4l9 5.5V20a1 1 0 0 1-1 1h-4v-6H8v6H4a1 1 0 0 1-1-1V9.5z" />
+              </svg>
+              <span>General</span>
             </a>
           </li>
           {% endif %}
           {% if course.teachers_room %}
           <li>
             <a href="{% url 'dashboard' %}?room_id={{ course.teachers_room.id }}"
-               class="block px-4 py-1 rounded transition
+               class="block px-4 py-1 rounded transition flex items-center gap-2
                     {% if selected_room.id == course.teachers_room.id %} bg-blue-100 text-blue-700 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-100 {% endif %}">
-              🎓 Profesores
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 14c4-2 6-4 6-6a6 6 0 10-12 0c0 2 2 4 6 6z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 20v-2a4 4 0 014-4h4a4 4 0 014 4v2" />
+              </svg>
+              <span>Profesores</span>
             </a>
           </li>
           {% endif %}
@@ -65,15 +82,18 @@
               {% if room.active %}
                 <li>
                   <a href="{% url 'dashboard' %}?room_id={{ room.id }}" 
-                     class="block px-4 py-1 rounded transition
+                     class="block px-4 py-1 rounded transition flex items-center gap-2
                           {% if selected_room.id == room.id %} bg-blue-100 text-blue-700 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-100 {% endif %}">
-                    💬 {{ room.shortcode }}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                    </svg>
+                    <span> {{ room.shortcode }}</span>
                   </a>
                 </li>
               {% endif %}
             {% endfor %}
           {% else %}
-            <li class="px-4 py-1 text-gray-400 italic">No rooms yet</li>
+            <li class="px-4 py-1 text-gray-400 italic">No hay salas creadas</li>
           {% endif %}
         </ul>
       </li>
@@ -86,6 +106,7 @@
       <button 
         @click="$store.modal.createRoomModal = true"
         class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+        aria-label="Crear nueva sala"
       >
         + Crear nueva sala
       </button>

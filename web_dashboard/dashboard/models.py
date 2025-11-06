@@ -136,3 +136,18 @@ class ResponseOption(models.Model):
     def __str__(self):
         return f"ResponseOption response={self.response_id} option={self.option_id}"
 
+
+class TeacherAvailability(models.Model):
+    id = models.AutoField(primary_key=True)
+    teacher_id = models.IntegerField()
+    day_of_week = models.TextField()  # stored as enum (weekday) in DB
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'teacher_availability'
+
+    def __str__(self):
+        return f"Availability teacher={self.teacher_id} {self.day_of_week} {self.start_time}-{self.end_time}"
+

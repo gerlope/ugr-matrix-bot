@@ -1,0 +1,117 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Horario de tutorías{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg p-6">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-xl font-semibold">Horario de tutorías</h2>
+    <button type="button" @click="$store.modal.createAvailabilityModal = true" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition">Añadir intervalo</button>
+  </div>
+
+  <!-- Mobile stacked view: one card per day (hidden on sm+ screens) -->
+  <div class="sm:hidden space-y-4 mb-4">
+    {% for day_obj in days_with_slots %}
+      <div class="bg-indigo-50 rounded-lg p-3 shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-sm font-medium">{{ day_obj.day }}</div>
+        </div>
+            {% if day_obj.slots %}
+          <div class="flex flex-col gap-2">
+            {% for slot in day_obj.slots %}
+              <div onclick="openEditModalFromSlot(this)" class="flex items-center justify-between bg-indigo-600 text-white rounded px-3 py-2" data-id="{{ slot.id }}" data-start="{{ slot.start }}" data-end="{{ slot.end }}" data-label="{{ slot.start }} — {{ slot.end }}">
+                <div class="text-sm">{{ slot.start }} — {{ slot.end }}</div>
+                <button type="button" class="ml-2 text-white p-1 rounded" onclick="event.stopPropagation(); openDeleteModalFromEl(this)" data-id="{{ slot.id }}" data-label="{{ slot.start }} — {{ slot.end }}" aria-label="Eliminar intervalo" title="Eliminar intervalo">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M9 3a1 1 0 00-1 1v1H5a1 1 0 000 2h14a1 1 0 000-2h-3V4a1 1 0 00-1-1H9zM7 9a1 1 0 000 2v7a1 1 0 001 1h8a1 1 0 001-1v-7a1 1 0 000-2H7z" />
+                  </svg>
+                </button>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-sm text-gray-500 italic">Sin disponibilidad</div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="hidden sm:grid grid-cols-8 gap-2 items-start">
+    <!-- Top header row: Hora + day names -->
+    <div></div>
+    {% for day_obj in days_with_slots %}
+      <div class="text-sm font-medium text-center bg-gray-50 rounded-t p-2 border-b">{{ day_obj.day }}</div>
+    {% endfor %}
+
+    <!-- Second row: left hour legend -->
+    <div style="height:36rem;">
+      <div class="bg-indigo-50 rounded-lg border-2 border-indigo-200 p-2 h-full shadow-sm">
+        <div class="relative h-full" aria-label="Leyenda de intervalos horarios">
+          <div class="absolute inset-0 flex flex-col">
+            {% for h in timeline_hours %}
+              <div class="flex-1 border-b border-dashed border-indigo-100 flex items-center justify-center text-sm text-indigo-700">{{ h|stringformat:"02d" }}:00 - {{ h|add:1|stringformat:"02d" }}:00</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Second row: unified timeline spanning 7 columns -->
+  <div class="col-span-7 relative">
+      <!-- Shared hour grid background spanning all days -->
+      <div class="absolute inset-0 bg-white rounded border overflow-hidden z-0">
+        <div class="absolute inset-0 flex flex-col">
+          {% for h in timeline_hours %}
+            <div class="flex-1 border-b border-dashed border-gray-100"></div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Days columns on top of shared grid -->
+  <div class="relative z-10 grid grid-cols-7" style="height:36rem;">
+  {% for day_obj in days_with_slots %}
+        <div class="bg-transparent rounded p-0 flex flex-col border-l border-gray-100">
+          <div class="relative flex-1">
+            {% if day_obj.slots %}
+              {% for slot in day_obj.slots %}
+                {% if slot.height_pct and slot.height_pct > 0 %}
+                  <div onclick="openEditModalFromSlot(this)" class="absolute left-2 right-2 rounded text-xs text-white flex items-center justify-center px-1 group"
+                  data-id="{{ slot.id }}" data-start="{{ slot.start }}" data-end="{{ slot.end }}" data-label="{{ slot.start }} — {{ slot.end }}" data-top="{{ slot.top_pct|floatformat:2 }}" data-height="{{ slot.height_pct|floatformat:2 }}">
+                    <button type="button" class="absolute top-1 right-1 text-white rounded-full p-1 bg-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-150" onclick="event.stopPropagation(); openDeleteModalFromEl(this)" aria-label="Eliminar intervalo" title="Eliminar intervalo"></button>
+                    <div class="px-2">{{ slot.start }} — {{ slot.end }}</div>
+
+                    <!-- Hover extension: a small floating circular handle inside the slot (visible on slot hover) -->
+                    <div class="absolute opacity-0 group-hover:opacity-100 transition-all duration-150" style="right: 0.5rem; top: 50%; transform: translateY(-50%);">
+                      <button type="button" onclick="event.stopPropagation(); openDeleteModalFromEl(this)" data-id="{{ slot.id }}" data-label="{{ slot.start }} — {{ slot.end }}" aria-label="Eliminar intervalo" title="Eliminar intervalo" class="flex items-center justify-center w-7 h-7 rounded-full bg-blue-600 text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path d="M9 3a1 1 0 00-1 1v1H5a1 1 0 000 2h14a1 1 0 000-2h-3V4a1 1 0 00-1-1H9zM7 9a1 1 0 000 2v7a1 1 0 001 1h8a1 1 0 001-1v-7a1 1 0 000-2H7z" />
+                        </svg>
+                      </button>
+                    </div>
+
+                  </div>
+                {% endif %}
+              {% endfor %}
+            {% else %}
+              <div class="absolute inset-0 flex items-center justify-center text-sm text-gray-400 italic">Sin disponibilidad</div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+      </div>
+    </div>
+  </div>
+
+</div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('[data-top]').forEach(function(el){
+          var top = el.getAttribute('data-top') || '0';
+          var height = el.getAttribute('data-height') || '0';
+          el.style.top = top + '%';
+          el.style.height = height + '%';
+          el.style.backgroundColor = '#2563eb';
+        });
+    });
+  </script>
+
+{% endblock %}

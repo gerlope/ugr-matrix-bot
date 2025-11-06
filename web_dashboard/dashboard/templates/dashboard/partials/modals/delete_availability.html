@@ -1,0 +1,41 @@
+<!-- Modal para confirmar eliminación de un intervalo de disponibilidad -->
+<div
+  x-show="$store.modal.deleteAvailabilityModal"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  x-transition.opacity
+  x-data="{}"
+  @keydown.escape.window="$store.modal.deleteAvailabilityModal = false"
+  @click.self="$store.modal.deleteAvailabilityModal = false"
+>
+  <div class="bg-white rounded-lg shadow-lg w-11/12 max-w-md p-6 relative" @click.stop x-transition.opacity>
+    <h3 class="text-lg font-semibold mb-4 text-red-600">Eliminar intervalo</h3>
+    <p class="text-gray-700 mb-4">¿Eliminar el intervalo <strong class="font-semibold text-gray-900"><span x-text="$store.modal.deleteAvailabilityLabel"></span></strong>?</p>
+
+    <form method="POST" action="{% url 'delete_availability' %}">
+      {% csrf_token %}
+      <input type="hidden" name="avail_id" x-bind:value="$store.modal.deleteAvailabilityId">
+      <div class="flex justify-end space-x-2">
+        <button type="button" @click="$store.modal.deleteAvailabilityModal = false" class="px-4 py-2 border rounded hover:bg-gray-100">Cancelar</button>
+        <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Eliminar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Expose a small helper to open the modal from a DOM element (used by timeslot delete buttons)
+  function openDeleteModalFromEl(btn) {
+    try {
+      if (typeof Alpine === 'undefined') return;
+      var slotEl = btn.closest('[data-id]');
+      if (!slotEl) return;
+      var id = slotEl.getAttribute('data-id');
+      var label = slotEl.getAttribute('data-label') || '';
+      Alpine.store('modal').deleteAvailabilityId = id;
+      Alpine.store('modal').deleteAvailabilityLabel = label;
+      Alpine.store('modal').deleteAvailabilityModal = true;
+    } catch (e) {
+      console.error('openDeleteModalFromEl error', e);
+    }
+  }
+</script>

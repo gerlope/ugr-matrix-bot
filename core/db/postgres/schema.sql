@@ -81,10 +81,11 @@ CREATE TABLE IF NOT EXISTS teacher_availability (
 -- 🔹 Index for fast lookup by teacher ID
 CREATE INDEX IF NOT EXISTS idx_teacher_availability_teacher_id ON teacher_availability(teacher_id);
 
--- 🔹 Trigger to prevent overlapping intervals for the same teacher
+-- 🔹 Trigger to prevent overlapping intervals for the same teacher (covers INSERT and UPDATE)
 CREATE OR REPLACE FUNCTION trg_no_overlap_func()
 RETURNS TRIGGER AS $$
 BEGIN
+    -- Exclude the row being updated (if any) using IS DISTINCT FROM so NULLs are handled
     IF EXISTS (
         SELECT 1
         FROM teacher_availability
@@ -92,6 +93,7 @@ BEGIN
           AND day_of_week = NEW.day_of_week
           AND NEW.start_time < end_time
           AND NEW.end_time > start_time
+          AND (id IS DISTINCT FROM NEW.id)
     ) THEN
         RAISE EXCEPTION 'Time interval overlaps with existing interval for this teacher';
     END IF;
@@ -105,9 +107,36 @@ BEGIN
         SELECT 1 FROM pg_trigger WHERE tgname = 'trg_no_overlap'
     ) THEN
         CREATE TRIGGER trg_no_overlap
-        BEFORE INSERT ON teacher_availability
+        BEFORE INSERT OR UPDATE ON teacher_availability
         FOR EACH ROW
         EXECUTE FUNCTION trg_no_overlap_func();
+    END IF;
+END
+$$;
+
+-- 🔹 Trigger to enforce availability time window (07:00 - 21:00)
+-- This prevents storing availability that starts before 07:00 or ends after 21:00.
+CREATE OR REPLACE FUNCTION trg_time_bounds_func()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- enforce inclusive lower bound at 07:00 and inclusive upper bound at 21:00
+    -- (start_time must be >= 07:00, end_time must be <= 21:00)
+    IF NEW.start_time < TIME '07:00' OR NEW.end_time > TIME '21:00' THEN
+        RAISE EXCEPTION 'Availability must be within 07:00 and 21:00 (start=% / end=%)', NEW.start_time, NEW.end_time;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'trg_time_bounds'
+    ) THEN
+        CREATE TRIGGER trg_time_bounds
+        BEFORE INSERT OR UPDATE ON teacher_availability
+        FOR EACH ROW
+        EXECUTE FUNCTION trg_time_bounds_func();
     END IF;
 END
 $$;
