@@ -29,6 +29,7 @@ class CreateQuestionForm(forms.Form):
     end_at = forms.DateTimeField(required=False, input_formats=['%Y-%m-%dT%H:%M'])
     allow_multiple_answers = forms.BooleanField(required=False, initial=False)
     allow_multiple_submissions = forms.BooleanField(required=False, initial=False)
+    close_on_first_correct = forms.BooleanField(required=False, initial=False, label='Cerrar tras primera correcta')
 
 
 class CreateAvailabilityForm(forms.Form):

@@ -77,6 +77,8 @@ class Question(models.Model):
     manual_active = models.BooleanField(default=False)
     allow_multiple_submissions = models.BooleanField(default=False)
     allow_multiple_answers = models.BooleanField(default=False)
+    close_on_first_correct = models.BooleanField(default=False)
+    close_triggered = models.BooleanField(default=False)
     created_at = models.DateTimeField(null=True, auto_now_add=True)
 
     class Meta:

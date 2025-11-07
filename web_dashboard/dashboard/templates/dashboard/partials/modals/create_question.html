@@ -130,9 +130,13 @@
       </div>
 
       <p id="question_time_error" class="text-red-600 text-sm mb-3 hidden"></p>
+  <p id="question_options_error" class="text-red-600 text-sm mb-3 hidden"></p>
 
       <div class="mb-4 space-y-2">
         <label class="flex items-center space-x-2"><input type="checkbox" name="allow_multiple_submissions" class="rounded" {% if create_question_form.allow_multiple_submissions.value %}checked{% endif %}> Permitir varios envíos por alumno</label>
+        <template x-if="qtype != 'essay'">
+          <label class="flex items-center space-x-2"><input type="checkbox" name="close_on_first_correct" class="rounded" {% if create_question_form.close_on_first_correct.value %}checked{% endif %}> Cerrar tras la primera respuesta correcta</label>
+        </template>
       </div>
 
       <div class="flex justify-end space-x-2">
@@ -156,6 +160,21 @@
 
     form.addEventListener('submit', function(ev){
       hideError();
+      // options validation for multiple_choice
+      try {
+        const qtypeEl = form.querySelector('select[name="qtype"]');
+        const qtypeVal = qtypeEl ? qtypeEl.value : null;
+        if (qtypeVal === 'multiple_choice') {
+          const singleChecked = form.querySelector('input[name="option_correct_single"]:checked');
+          const multiChecked = form.querySelectorAll('input[name^="option_correct_"]:checked');
+          if (!singleChecked && (!multiChecked || multiChecked.length === 0)) {
+            const optErr = document.getElementById('question_options_error');
+            if (optErr) { optErr.textContent = 'Debes marcar al menos una opción correcta.'; optErr.classList.remove('hidden'); }
+            ev.preventDefault();
+            return;
+          }
+        }
+      } catch(e){ console.error(e); }
       const s = st && st.value ? new Date(st.value) : null;
       const e = et && et.value ? new Date(et.value) : null;
       if (s && e && s >= e){ showError('La hora de inicio debe ser anterior a la hora de fin.'); ev.preventDefault(); return; }

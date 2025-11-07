@@ -473,6 +473,44 @@ def create_question(request):
         messages.error(request, "No tienes permiso para añadir preguntas en esta sala.")
         return redirect(f"{reverse('dashboard')}?room_id={selected_room_id}")
 
+    # gather dynamic option_* fields into an index-ordered list BEFORE creating the question
+    options_map = {}
+    for key, val in request.POST.items():
+        if key.startswith('option_') and val and val.strip():
+            try:
+                idx = int(key.split('_', 1)[1])
+            except Exception:
+                continue
+            options_map[idx] = val.strip()
+    options = [options_map[i] for i in sorted(options_map.keys())]
+
+    qtype = form.cleaned_data.get('qtype')
+
+    # server-side validation: ensure multiple-choice questions have at least one correct answer
+    if qtype == 'multiple_choice':
+        # If single-choice, check option_correct_single; otherwise check any option_correct_<idx>
+        single_choice = request.POST.get('option_correct_single')
+        any_correct = False
+        if single_choice is not None and single_choice != '':
+            any_correct = True
+        else:
+            for idx in range(len(options)):
+                if request.POST.get(f'option_correct_{idx}'):
+                    any_correct = True
+                    break
+        if not any_correct:
+            form.add_error(None, 'Debe marcar al menos una opción como correcta para preguntas de opción múltiple.')
+            data = get_data_for_dashboard(teacher, selected_room_id)
+            return render(request, 'dashboard/dashboard.html', {
+                'teacher': teacher,
+                'courses': data['courses'],
+                'selected_room': data['selected_room'],
+                'selected_course': data['selected_course'],
+                'students': data['selected_students'],
+                'create_question_form': form,
+                'show_create_question_modal': 'true',
+            })
+
     # create question
     try:
         q = Question.objects.using('postgresql').create(
@@ -480,26 +518,14 @@ def create_question(request):
             room_id=room.id,
             title=form.cleaned_data.get('title') or None,
             body=form.cleaned_data['body'],
-            qtype=form.cleaned_data['qtype'],
+            qtype=qtype,
             start_at=form.cleaned_data.get('start_at'),
             end_at=form.cleaned_data.get('end_at'),
             manual_active=False,
             allow_multiple_submissions=form.cleaned_data.get('allow_multiple_submissions', False),
-            allow_multiple_answers=form.cleaned_data.get('allow_multiple_answers', False)
+            allow_multiple_answers=form.cleaned_data.get('allow_multiple_answers', False),
+            close_on_first_correct=form.cleaned_data.get('close_on_first_correct', False)
         )
-
-        # gather dynamic option_* fields into an index-ordered list
-        options_map = {}
-        for key, val in request.POST.items():
-            if key.startswith('option_') and val and val.strip():
-                try:
-                    idx = int(key.split('_', 1)[1])
-                except Exception:
-                    continue
-                options_map[idx] = val.strip()
-        options = [options_map[i] for i in sorted(options_map.keys())]
-
-        qtype = form.cleaned_data.get('qtype')
 
         # create options and mark correct ones based on posted flags
         if qtype == 'short_answer' or qtype == 'numeric':
@@ -577,6 +603,12 @@ def toggle_question_active(request, question_id):
 
     now = timezone.now()
     try:
+        # If the question was auto-closed due to the "close on first correct" rule,
+        # do not allow any reopen/toggle actions from the dashboard.
+        if getattr(q, 'close_on_first_correct', False) and getattr(q, 'close_triggered', False):
+            messages.error(request, "Esta pregunta fue cerrada tras recibir la primera respuesta correcta y no se puede reabrir desde aquí.")
+            return redirect(f"{reverse('dashboard')}?room_id={q.room_id}")
+
         # If the question has no start_at and no end_at, the template shows manual-only buttons;
         # in that case we should only toggle the manual_active override.
         if q.start_at is None and q.end_at is None:

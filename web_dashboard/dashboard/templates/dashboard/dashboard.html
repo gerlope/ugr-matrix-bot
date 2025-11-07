@@ -57,8 +57,8 @@
       <ul class="divide-y">
     {% for item in questions_list %}
   {% with q=item.question opts=item.options active_now=item.is_currently_active within_window=item.within_window before_start=item.before_start after_end=item.after_end %}
-        <li x-data="{ open: false }" data-question-id="{{ q.id }}" class="py-2 hover:bg-gray-50 rounded transition cursor-pointer">
-          <button @click="open = !open" class="w-full text-left">
+        <li x-data="{ open: false }" data-question-id="{{ q.id }}" class="py-2 hover:bg-gray-50 rounded transition cursor-pointer" @click="open = !open" tabindex="0" @keydown.enter.prevent="open = !open" @keydown.space.prevent="open = !open">
+          <div class="w-full text-left">
             <div class="w-full flex justify-between items-center text-left px-2 py-2">
               <div>
                 <div class="font-semibold">{{ q.title|default:"(sin título)" }}</div>
@@ -74,6 +74,20 @@
                 {% else %}
                   <div class="inline-block bg-red-100 text-red-800 px-2 py-1 rounded">Inactivo</div>
                 {% endif %}
+                {% if q.close_on_first_correct %}
+                  <div class="inline-block bg-purple-100 text-purple-800 px-2 py-1 rounded mt-1">Cierra tras 1ª correcta</div>
+                {% endif %}
+                {% if q.close_triggered %}
+                  <div class="inline-block bg-gray-200 text-gray-800 px-2 py-1 rounded mt-1">Cerrada (1ª correcta recibida)</div>
+                {% endif %}
+                {% if q.qtype == 'multiple_choice' %}                  
+                  {% if q.allow_multiple_answers %}
+                    <div class="inline-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded mt-1">Múltiple selección</div>
+                  {% endif %}
+                {% endif %}
+                {% if q.allow_multiple_submissions %}
+                  <div class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded mt-1">Varios envíos</div>
+                {% endif %}
                 {% if q.start_at %}
                   <div>Desde: {{ q.start_at|date:"Y-m-d H:i" }}</div>
                 {% endif %}
@@ -82,10 +96,10 @@
                 {% endif %}
               </div>
             </div>
-          </button>
+          </div>
           {% if selected_room.teacher_id == teacher.id and q.qtype != 'essay' %}
             <div class="px-2 mt-2">
-              <button type="button" class="px-2 py-1 text-sm bg-indigo-500 text-white rounded toggle-reveal-btn" data-qid="{{ q.id }}">Mostrar respuestas correctas</button>
+              <button type="button" @click.stop class="px-2 py-1 text-sm bg-indigo-500 text-white rounded toggle-reveal-btn" data-qid="{{ q.id }}">Mostrar respuestas correctas</button>
             </div>
           {% endif %}
           
@@ -115,38 +129,43 @@
 
           {% if selected_room.teacher_id == teacher.id %}
             <div class="mt-3 flex justify-between items-center">
-              <form method="post" action="{% url 'toggle_question_active' q.id %}">
+              <form method="post" action="{% url 'toggle_question_active' q.id %}" @click.stop>
                 {% csrf_token %}
-                {# If there is no start AND no end date, use manual activate/deactivate labels only #}
-                {% if not q.start_at and not q.end_at %}
-                  {% if q.manual_active %}
-                    <button type="submit" class="px-3 py-1 bg-red-600 text-white rounded">Desactivar</button>
-                  {% else %}
-                    <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded">Activar</button>
-                  {% endif %}
+                {# If the question was auto-closed due to first-correct, show a label and do not show controls #}
+                {% if q.close_on_first_correct and q.close_triggered %}
+                  <div class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm">Cerrada tras 1ª correcta — no se puede reabrir</div>
                 {% else %}
-                  {% if active_now %}
-                    {% if not within_window and q.end_at %}
-                      <button type="submit" class="px-3 py-1 bg-red-600 text-white rounded">Desactivar (fuera de horario)</button>
+                  {# Manual-only questions (no start/end) toggle manual_active #}
+                  {% if not q.start_at and not q.end_at %}
+                    {% if q.manual_active %}
+                      <button type="submit" class="px-3 py-1 bg-red-600 text-white rounded">Desactivar</button>
                     {% else %}
-                      <button type="submit" class="px-3 py-1 bg-red-600 text-white rounded">Finalizar ahora</button>
+                      <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded">Activar</button>
                     {% endif %}
                   {% else %}
-                    {# Inactive state: if we're before the start time show 'Iniciar ahora'; if after end show 'Activar (fuera de horario)' #}
-                    {% if before_start %}
-                      <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded">Iniciar ahora</button>
-                    {% elif after_end %}
-                      <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded">Activar (fuera de horario)</button>
+                    {# Window-controlled questions: if active, allow finalizing; otherwise allow starting depending on time context #}
+                    {% if active_now %}
+                      {% if not within_window and q.end_at %}
+                        <button type="submit" class="px-3 py-1 bg-red-600 text-white rounded">Desactivar (fuera de horario)</button>
+                      {% else %}
+                        <button type="submit" class="px-3 py-1 bg-red-600 text-white rounded">Finalizar ahora</button>
+                      {% endif %}
                     {% else %}
-                      <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded">Activar (esto no deberías poder verlo)</button>
+                      {% if before_start %}
+                        <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded">Iniciar ahora</button>
+                      {% elif after_end %}
+                        <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded">Activar (fuera de horario)</button>
+                      {% else %}
+                        <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded">Activar</button>
+                      {% endif %}
                     {% endif %}
                   {% endif %}
                 {% endif %}
               </form>
-            
+
               <button 
                 type="button" 
-                @click="$store.modal.deleteQuestionId = {{ q.id }}; $store.modal.deleteQuestionTitle = '{{ q.title|escapejs }}'; $store.modal.deleteQuestionModal = true"
+                @click.stop="$store.modal.deleteQuestionId = {{ q.id }}; $store.modal.deleteQuestionTitle = '{{ q.title|escapejs }}'; $store.modal.deleteQuestionModal = true"
                 class="px-3 py-1 bg-gray-600 text-white rounded"
               >
                 Eliminar
