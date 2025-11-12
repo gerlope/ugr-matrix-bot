@@ -1,16 +1,8 @@
-import sys
 import requests
 from concurrent.futures import ThreadPoolExecutor
 from django.db.models import Sum, Max
-from pathlib import Path
 from .models import ExternalUser, Reaction, Room, Question, QuestionOption, ResponseOption, QuestionResponse
 from django.utils import timezone
-
-
-# add repo root (two levels above this views.py) to sys.path so "import config" works
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT))
-
 from config import MOODLE_URL, MOODLE_TOKEN
 
 

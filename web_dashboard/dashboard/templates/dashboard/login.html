@@ -5,13 +5,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Matrix Panel</title>
+  <link rel="icon" href="{% static 'favicon.ico' %}?v=2" type="image/x-icon">
+  <link rel="shortcut icon" href="{% static 'favicon.ico' %}?v=2" type="image/x-icon">
+  <link rel="icon" sizes="any" href="{% static 'favicon.ico' %}?v=2">
+  <link rel="apple-touch-icon" href="{% static 'UGR-logo-full.png' %}">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 flex items-center justify-center h-screen">
 
 <div class="bg-white shadow-lg rounded-lg p-8 w-full max-w-md">
     <div class="flex justify-center mb-6">
-        <img src="/media/UGR-logo-full.png" alt="Logo" class="max-h-[200px] max-w-[200px]">
+  <img src="{% static 'UGR-logo-full.png' %}" alt="Logo" class="max-h-[200px] max-w-[200px]">
     </div>
 
     <h2 class="text-2xl font-semibold text-center mb-6">Iniciar Sesión</h2>

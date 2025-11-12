@@ -12,12 +12,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
-import sys
-
-# add repo root (two levels above this settings.py) to sys.path so "import config" works
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT))
-
 from config import DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT
 
 
@@ -48,9 +42,6 @@ LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 
-# Media settings
-MEDIA_URL = '/media/'                     # URL prefix for media
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # Absolute path to media folde
 
 # Application definition
 
@@ -147,7 +138,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+# Where `collectstatic` will place collected static files for production
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+# Project-level static files (place your logos and favicon in web_dashboard/static/)
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

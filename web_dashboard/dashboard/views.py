@@ -1,4 +1,3 @@
-import sys
 from django.db import IntegrityError
 from django.shortcuts import get_object_or_404, render
 from django.contrib.auth.decorators import login_required
@@ -8,20 +7,12 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.contrib.auth import login
 from django.contrib.auth.models import User
-from pathlib import Path
 
 from .utils import get_data_for_dashboard, build_availability_display
 from .models import Room, ExternalUser, TeacherAvailability
 from .forms import ExternalLoginForm, CreateRoomForm, CreateQuestionForm
-from django.db import connections, OperationalError
 from .models import Question, QuestionOption
 from django.utils import timezone
-
-
-# add repo root (two levels above this views.py) to sys.path so "import config" works
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT))
-
 from config import HOMESERVER
 
 @login_required(login_url='login')
