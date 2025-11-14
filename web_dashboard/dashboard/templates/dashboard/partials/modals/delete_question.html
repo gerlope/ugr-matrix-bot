@@ -15,7 +15,7 @@
       <br><span class="text-sm text-gray-500">Esta acción eliminará la pregunta y todas sus opciones y respuestas asociadas.</span>
     </p>
 
-    {% url 'delete_question' 0 as delete_zero %}
+  {% url 'dashboard:delete_question' 0 as delete_zero %}
 
     <form method="POST" x-bind:action="'{{ delete_zero }}'.replace('/0/', '/' + $store.modal.deleteQuestionId + '/')">
       {% csrf_token %}

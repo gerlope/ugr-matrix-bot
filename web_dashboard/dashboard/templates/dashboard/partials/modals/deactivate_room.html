@@ -21,7 +21,7 @@
     </p>
 
     {% if selected_room %}
-    <form method="POST" action="{% url 'deactivate_room' selected_room.id %}">
+  <form method="POST" action="{% url 'dashboard:deactivate_room' selected_room.id %}">
       {% csrf_token %}
       <div class="flex justify-end space-x-2">
         <button 

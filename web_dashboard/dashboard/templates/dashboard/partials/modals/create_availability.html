@@ -17,7 +17,7 @@
       </div>
     {% endif %}
 
-  <form id="create_availability_form" method="POST" action="{% url 'create_availability' %}">
+  <form id="create_availability_form" method="POST" action="{% url 'dashboard:create_availability' %}">
       {% csrf_token %}
 
       <div class="mb-3">

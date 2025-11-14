@@ -18,7 +18,7 @@ import time
 import string
 import secrets
 from config import (MOODLE_URL, MOODLE_TOKEN,
-                    HOMESERVER, USERNAME, PASSWORD, ADMIN_TOKEN,
+                    HOMESERVER, USERNAME, PASSWORD, MATRIX_ADMIN_TOKEN,
                     DB_USER, DB_PASSWORD, DB_NAME, DB_HOST, DB_PORT
                     )
 
@@ -89,7 +89,7 @@ def get_course_users(course_id):
 
 async def create_matrix_user(session, localpart, password, displayname=None):
     url = f"{HOMESERVER}/_synapse/admin/v2/users"
-    headers = {'Authorization': f'Bearer {ADMIN_TOKEN}', 'Content-Type': 'application/json'}
+    headers = {'Authorization': f'Bearer {MATRIX_ADMIN_TOKEN}', 'Content-Type': 'application/json'}
     body = {"localpart": localpart, "password": password}
     if displayname:
         body["displayname"] = displayname

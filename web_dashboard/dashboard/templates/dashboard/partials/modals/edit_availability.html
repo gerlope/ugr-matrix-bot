@@ -17,7 +17,7 @@
       </div>
     {% endif %}
 
-  <form id="edit_availability_form" method="POST" action="{% url 'edit_availability' %}">
+  <form id="edit_availability_form" method="POST" action="{% url 'dashboard:edit_availability' %}">
       {% csrf_token %}
       <input type="hidden" name="avail_id" id="edit_avail_id" value="{{ edit_availability_id|default:'' }}">
 

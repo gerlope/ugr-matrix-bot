@@ -23,7 +23,8 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('dashboard.urls')),
+    # Include dashboard app with namespace so reversing works as 'dashboard:dashboard', etc.
+    path('', include(('dashboard.urls', 'dashboard'), namespace='dashboard')),
 ]
 
 if settings.DEBUG:

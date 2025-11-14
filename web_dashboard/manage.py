@@ -9,8 +9,7 @@ import importlib.util
 def _load_config_into_sys_modules():
     """Load repository config.py as module 'config' without changing sys.path."""
     repo_root = Path(__file__).resolve().parents[1]
-    config_path = repo_root / "config.py"
-    spec = importlib.util.spec_from_file_location("config", str(config_path))
+    spec = importlib.util.spec_from_file_location("config", str(repo_root / "config.py"))
     cfg = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(cfg)
     sys.modules["config"] = cfg

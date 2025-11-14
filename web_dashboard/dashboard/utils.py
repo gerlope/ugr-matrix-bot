@@ -101,9 +101,9 @@ def get_data_for_dashboard(teacher, selected_room_id = None):
         print(f"[Dashboard] Error fetching courses: {e}")  
 
 
-    # Get all rooms belonging to this teacher from PostgreSQL
-    teacher_rooms = Room.objects.using('postgresql').filter(teacher_id=teacher['id'], active=True)
-    general_rooms = Room.objects.using('postgresql').filter(teacher_id=None)
+    # Get all rooms belonging to this teacher from bot_db
+    teacher_rooms = Room.objects.using('bot_db').filter(teacher_id=teacher['id'], active=True)
+    general_rooms = Room.objects.using('bot_db').filter(teacher_id=None)
 
     course_list = []
     thread_results = [None] * len(courses_data)
@@ -218,7 +218,7 @@ def process_course_data(course, general_rooms, teacher_rooms, teacher, selected_
             print(f"[Dashboard] Error fetching students: {e}")
 
         if selected_room.teacher_id is None and selected_room.shortcode == course.get('shortname'):
-            selected_reactions = (Reaction.objects.using('postgresql').filter(teacher_id=teacher['id'],
+            selected_reactions = (Reaction.objects.using('bot_db').filter(teacher_id=teacher['id'],
                                                                               room_id__in=[room.id for room in course_rooms + ([general_room] if general_room else [])])
                                                                       .values('student_id', 'emoji')
                                                                       .annotate(total_count=Sum('count'), 
@@ -226,7 +226,7 @@ def process_course_data(course, general_rooms, teacher_rooms, teacher, selected_
 
             selected_students = []
             student_moodle_ids = [s['id'] for s in enrolled_data if s.get('roles') and any(r['shortname'] == 'student' for r in s['roles'])]
-            student_db_data = ExternalUser.objects.using('postgresql').filter(moodle_id__in=student_moodle_ids)
+            student_db_data = ExternalUser.objects.using('bot_db').filter(moodle_id__in=student_moodle_ids)
             
             for student in student_db_data:
                 moodle_user = next((s for s in enrolled_data if s['id'] == student.moodle_id), None)
@@ -238,7 +238,7 @@ def process_course_data(course, general_rooms, teacher_rooms, teacher, selected_
                     'groups': moodle_user.get('groups', None) if moodle_user else []
                 })   
         elif selected_room.teacher_id == teacher['id']:
-            selected_reactions = (Reaction.objects.using('postgresql').filter(teacher_id=teacher['id'], 
+            selected_reactions = (Reaction.objects.using('bot_db').filter(teacher_id=teacher['id'], 
                                                                               room_id=selected_room_id)
                                                                       .values('student_id', 'emoji')
                                                                       .annotate(total_count=Sum('count'), 
@@ -246,7 +246,7 @@ def process_course_data(course, general_rooms, teacher_rooms, teacher, selected_
             
             selected_students = []
             participants_matrix_ids = [] #GET FROM MATRIX API
-            student_db_data = ExternalUser.objects.using('postgresql').filter(matrix_id__in=participants_matrix_ids)
+            student_db_data = ExternalUser.objects.using('bot_db').filter(matrix_id__in=participants_matrix_ids)
 
             for student in student_db_data:
                 moodle_user = next((s for s in enrolled_data if s['id'] == student.moodle_id), None)
@@ -261,11 +261,11 @@ def process_course_data(course, general_rooms, teacher_rooms, teacher, selected_
         try:
             room_db_id = selected_room.id if selected_room is not None else None
             if room_db_id is not None:
-                qs = list(Question.objects.using('postgresql').filter(room_id=room_db_id).order_by('-created_at'))
+                qs = list(Question.objects.using('bot_db').filter(room_id=room_db_id).order_by('-created_at'))
                 qids = [q.id for q in qs]
                 question_options = {}
                 if qids:
-                    opts = QuestionOption.objects.using('postgresql').filter(question_id__in=qids).order_by('question_id', 'position')
+                    opts = QuestionOption.objects.using('bot_db').filter(question_id__in=qids).order_by('question_id', 'position')
                     for opt in opts:
                         question_options.setdefault(opt.question_id, []).append(opt)
                 now = timezone.now()
@@ -308,11 +308,11 @@ def process_course_data(course, general_rooms, teacher_rooms, teacher, selected_
                 try:
                     if qids:
                         # Fetch responses and response_options
-                        resp_qs = list(QuestionResponse.objects.using('postgresql').filter(question_id__in=qids).order_by('-submitted_at'))
+                        resp_qs = list(QuestionResponse.objects.using('bot_db').filter(question_id__in=qids).order_by('-submitted_at'))
                         resp_ids = [r.id for r in resp_qs]
                         resp_opts_map = {}
                         if resp_ids:
-                            resp_opts = ResponseOption.objects.using('postgresql').filter(response_id__in=resp_ids)
+                            resp_opts = ResponseOption.objects.using('bot_db').filter(response_id__in=resp_ids)
                             for ro in resp_opts:
                                 resp_opts_map.setdefault(ro.response_id, []).append(ro.option_id)
 
@@ -320,7 +320,7 @@ def process_course_data(course, general_rooms, teacher_rooms, teacher, selected_
                         student_ids = list({r.student_id for r in resp_qs})
                         students_map = {}
                         if student_ids:
-                            users = ExternalUser.objects.using('postgresql').filter(id__in=student_ids)
+                            users = ExternalUser.objects.using('bot_db').filter(id__in=student_ids)
                             for u in users:
                                 students_map[u.id] = u
 

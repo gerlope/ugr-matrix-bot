@@ -129,7 +129,7 @@
 
           {% if selected_room.teacher_id == teacher.id %}
             <div class="mt-3 flex justify-between items-center">
-              <form method="post" action="{% url 'toggle_question_active' q.id %}" @click.stop>
+              <form method="post" action="{% url 'dashboard:toggle_question_active' q.id %}" @click.stop>
                 {% csrf_token %}
                 {# If the question was auto-closed due to first-correct, show a label and do not show controls #}
                 {% if q.close_on_first_correct and q.close_triggered %}

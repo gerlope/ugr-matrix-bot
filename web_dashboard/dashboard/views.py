@@ -50,7 +50,7 @@ def tutoring_schedule(request):
     data = get_data_for_dashboard(teacher, None)
 
     # Fetch availability rows for this teacher from external DB and build display data
-    avail_rows = TeacherAvailability.objects.using('postgresql').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
+    avail_rows = TeacherAvailability.objects.using('bot_db').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
     avail_display = build_availability_display(avail_rows, timeline_start_hour=7, timeline_end_hour=21)
     days_with_slots = avail_display['days_with_slots']
     timeline_hours = avail_display['timeline_hours']
@@ -86,7 +86,7 @@ def create_availability(request):
         data = get_data_for_dashboard(teacher, None)
 
         # recompute availability and days_with_slots using utility
-        avail_rows = TeacherAvailability.objects.using('postgresql').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
+        avail_rows = TeacherAvailability.objects.using('bot_db').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
         avail_display = build_availability_display(avail_rows, timeline_start_hour=7, timeline_end_hour=21)
         days_with_slots = avail_display['days_with_slots']
         timeline_hours = avail_display['timeline_hours']
@@ -111,7 +111,7 @@ def create_availability(request):
     st = form.cleaned_data['start_time']
     et = form.cleaned_data['end_time']
 
-    existing = TeacherAvailability.objects.using('postgresql').filter(teacher_id=teacher['id'], day_of_week=day)
+    existing = TeacherAvailability.objects.using('bot_db').filter(teacher_id=teacher['id'], day_of_week=day)
     for a in existing:
         try:
             if (st < a.end_time and et > a.start_time):
@@ -119,7 +119,7 @@ def create_availability(request):
                 data = get_data_for_dashboard(teacher, None)
 
                 # recompute availability/days_with_slots using utility
-                avail_rows = TeacherAvailability.objects.using('postgresql').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
+                avail_rows = TeacherAvailability.objects.using('bot_db').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
                 avail_display = build_availability_display(avail_rows, timeline_start_hour=7, timeline_end_hour=21)
                 days_with_slots = avail_display['days_with_slots']
                 timeline_hours = avail_display['timeline_hours']
@@ -143,7 +143,7 @@ def create_availability(request):
 
     # create availability
     try:
-        TeacherAvailability.objects.using('postgresql').create(
+        TeacherAvailability.objects.using('bot_db').create(
             teacher_id=teacher['id'],
             day_of_week=day,
             start_time=st,
@@ -164,7 +164,7 @@ def external_login(request):
             username = "@" + form.cleaned_data['username'] + ":" + HOMESERVER.split("//")[1].split("/")[0]
 
             try:
-                teacher = ExternalUser.objects.using('postgresql').filter(matrix_id=username).first()
+                teacher = ExternalUser.objects.using('bot_db').filter(matrix_id=username).first()
                 if teacher:
                     if not teacher.is_teacher:
                         form.add_error(None, "Acceso denegado: no es profesor")
@@ -215,7 +215,7 @@ def delete_availability(request):
         messages.error(request, "ID de disponibilidad inválido.")
         return redirect('tutoring_schedule')
 
-    a = TeacherAvailability.objects.using('postgresql').filter(id=avail_id).first()
+    a = TeacherAvailability.objects.using('bot_db').filter(id=avail_id).first()
     if not a:
         messages.error(request, "Disponibilidad no encontrada.")
         return redirect('tutoring_schedule')
@@ -226,7 +226,7 @@ def delete_availability(request):
 
     try:
         # instance delete on external DB
-        a.delete(using='postgresql')
+        a.delete(using='bot_db')
         messages.success(request, "Intervalo eliminado correctamente.")
     except Exception as e:
         messages.error(request, f"Error al eliminar la disponibilidad: {e}")
@@ -251,7 +251,7 @@ def edit_availability(request):
         messages.error(request, "ID de disponibilidad inválido.")
         return redirect('tutoring_schedule')
 
-    a = TeacherAvailability.objects.using('postgresql').filter(id=avail_id).first()
+    a = TeacherAvailability.objects.using('bot_db').filter(id=avail_id).first()
     if not a:
         messages.error(request, "Disponibilidad no encontrada.")
         return redirect('tutoring_schedule')
@@ -274,7 +274,7 @@ def edit_availability(request):
         data = get_data_for_dashboard(teacher, None)
 
         # recompute availability/days_with_slots using helper
-        avail_rows = TeacherAvailability.objects.using('postgresql').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
+        avail_rows = TeacherAvailability.objects.using('bot_db').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
         avail_display = build_availability_display(avail_rows, timeline_start_hour=timeline_start_hour, timeline_end_hour=timeline_end_hour)
         days_with_slots = avail_display['days_with_slots']
         timeline_hours = avail_display['timeline_hours']
@@ -299,7 +299,7 @@ def edit_availability(request):
     et = form.cleaned_data['end_time']
     day = a.day_of_week
 
-    existing = TeacherAvailability.objects.using('postgresql').filter(teacher_id=teacher['id'], day_of_week=day).exclude(id=avail_id)
+    existing = TeacherAvailability.objects.using('bot_db').filter(teacher_id=teacher['id'], day_of_week=day).exclude(id=avail_id)
     for ex in existing:
         try:
             if (st < ex.end_time and et > ex.start_time):
@@ -307,7 +307,7 @@ def edit_availability(request):
                 data = get_data_for_dashboard(teacher, None)
 
                 # recompute availability/days_with_slots using helper
-                avail_rows = TeacherAvailability.objects.using('postgresql').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
+                avail_rows = TeacherAvailability.objects.using('bot_db').filter(teacher_id=teacher['id']).order_by('day_of_week', 'start_time')
                 avail_display = build_availability_display(avail_rows, timeline_start_hour=timeline_start_hour, timeline_end_hour=timeline_end_hour)
                 days_with_slots = avail_display['days_with_slots']
                 timeline_hours = avail_display['timeline_hours']
@@ -333,7 +333,7 @@ def edit_availability(request):
     try:
         a.start_time = st
         a.end_time = et
-        a.save(using='postgresql')
+        a.save(using='bot_db')
         messages.success(request, 'Intervalo actualizado correctamente.')
     except Exception as e:
         messages.error(request, f'Error al actualizar el intervalo: {e}')
@@ -367,7 +367,7 @@ def create_room(request):
     restrict_group = form.cleaned_data.get('restrict_group', False)
 
     try:
-        room = Room.objects.using('postgresql').create(
+        room = Room.objects.using('bot_db').create(
             moodle_course_id=course_id,
             teacher_id=teacher['id'],
             shortcode=shortcode,
@@ -420,7 +420,7 @@ def deactivate_room(request, room_id):
     if not teacher:
         return redirect('login')
 
-    room = get_object_or_404(Room.objects.using('postgresql'), id=room_id)
+    room = get_object_or_404(Room.objects.using('bot_db'), id=room_id)
 
     # Only the owner teacher can deactivate it
     if room.teacher_id != teacher['id']:
@@ -428,7 +428,7 @@ def deactivate_room(request, room_id):
         return redirect(f"{reverse('dashboard')}?room_id={room.id}")
 
     room.active = False
-    room.save(using='postgresql')
+    room.save(using='bot_db')
     messages.success(request, f"La sala '{room.shortcode}' ha sido cerrada correctamente.")
     return redirect('dashboard')
 
@@ -458,7 +458,7 @@ def create_question(request):
     # permission: ensure teacher owns the room
     room = None
     if selected_room_id:
-        room = Room.objects.using('postgresql').filter(id=selected_room_id).first()
+        room = Room.objects.using('bot_db').filter(id=selected_room_id).first()
 
     if not room or room.teacher_id != teacher['id']:
         messages.error(request, "No tienes permiso para añadir preguntas en esta sala.")
@@ -504,7 +504,7 @@ def create_question(request):
 
     # create question
     try:
-        q = Question.objects.using('postgresql').create(
+        q = Question.objects.using('bot_db').create(
             teacher_id=teacher['id'],
             room_id=room.id,
             title=form.cleaned_data.get('title') or None,
@@ -523,7 +523,7 @@ def create_question(request):
             # store expected answer as a single option (is_correct=True)
             expected = request.POST.get('expected_answer', '').strip()
             if expected:
-                QuestionOption.objects.using('postgresql').create(
+                QuestionOption.objects.using('bot_db').create(
                     question_id=q.id,
                     option_key='ANSWER',
                     text=expected,
@@ -535,7 +535,7 @@ def create_question(request):
             tf_correct = request.POST.get('tf_correct')  # '0' or '1'
             for idx, opt_text in enumerate(options):
                 is_correct = (str(idx) == str(tf_correct)) if tf_correct is not None else False
-                QuestionOption.objects.using('postgresql').create(
+                QuestionOption.objects.using('bot_db').create(
                     question_id=q.id,
                     option_key=chr(65 + (idx % 26)),
                     text=opt_text,
@@ -552,7 +552,7 @@ def create_question(request):
                     correct_flag = request.POST.get(f'option_correct_{idx}')
                     is_correct = bool(correct_flag)
 
-                QuestionOption.objects.using('postgresql').create(
+                QuestionOption.objects.using('bot_db').create(
                     question_id=q.id,
                     option_key=chr(65 + (idx % 26)),
                     text=opt_text,
@@ -583,7 +583,7 @@ def toggle_question_active(request, question_id):
     if not teacher:
         return redirect('login')
 
-    q = Question.objects.using('postgresql').filter(id=question_id).first()
+    q = Question.objects.using('bot_db').filter(id=question_id).first()
     if not q:
         messages.error(request, "Pregunta no encontrada.")
         return redirect('dashboard')
@@ -604,14 +604,14 @@ def toggle_question_active(request, question_id):
         # in that case we should only toggle the manual_active override.
         if q.start_at is None and q.end_at is None:
             q.manual_active = not bool(q.manual_active)
-            q.save(using='postgresql')
+            q.save(using='bot_db')
             messages.success(request, f"Campo manual_active actualizado (ahora={'sí' if q.manual_active else 'no'}).")
             return redirect(f"{reverse('dashboard')}?room_id={q.room_id}")
 
         # If the question has already finished (end_at in the past), use manual_active toggle instead
         if q.end_at is not None and q.end_at < now:
             q.manual_active = not bool(q.manual_active)
-            q.save(using='postgresql')
+            q.save(using='bot_db')
             messages.success(request, f"Campo manual_active actualizado (ahora={'sí' if q.manual_active else 'no'}).")
             return redirect(f"{reverse('dashboard')}?room_id={q.room_id}")
 
@@ -627,7 +627,7 @@ def toggle_question_active(request, question_id):
             q.end_at = now
             # ensure manual_active is False when using window-based control
             q.manual_active = False
-            q.save(using='postgresql')
+            q.save(using='bot_db')
             messages.success(request, "Pregunta finalizada ahora (end_at actualizada).")
             return redirect(f"{reverse('dashboard')}?room_id={q.room_id}")
 
@@ -635,7 +635,7 @@ def toggle_question_active(request, question_id):
         q.start_at = now
         # ensure manual_active is False when using window-based control
         q.manual_active = False
-        q.save(using='postgresql')
+        q.save(using='bot_db')
         messages.success(request, "Pregunta iniciada ahora (start_at actualizada).")
     except Exception as e:
         messages.error(request, f"Error al actualizar la pregunta: {e}")
@@ -651,7 +651,7 @@ def delete_question(request, question_id):
     if not teacher:
         return redirect('login')
 
-    q = Question.objects.using('postgresql').filter(id=question_id).first()
+    q = Question.objects.using('bot_db').filter(id=question_id).first()
     if not q:
         messages.error(request, "Pregunta no encontrada.")
         return redirect('dashboard')
@@ -662,7 +662,7 @@ def delete_question(request, question_id):
 
     try:
         # delete the question and cascade to options/responses
-        q.delete(using='postgresql')
+        q.delete(using='bot_db')
         messages.success(request, "Pregunta eliminada correctamente.")
     except Exception as e:
         messages.error(request, f"Error al eliminar la pregunta: {e}")

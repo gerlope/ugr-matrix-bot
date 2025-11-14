@@ -19,7 +19,7 @@
   <nav class="p-4 flex flex-col h-full overflow-y-auto">
     <ul class="flex-1">
       <li class="mb-2">
-        <a href="{% url 'tutoring_schedule' %}" class="block px-4 py-2 rounded transition flex items-center gap-3
+  <a href="{% url 'dashboard:tutoring_schedule' %}" class="block px-4 py-2 rounded transition flex items-center gap-3
              {% if selected_page == 'schedule' %} bg-blue-600 text-white shadow-md ring-1 ring-blue-200 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-50 {% endif %}">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -54,7 +54,7 @@
         >
           {% if course.general_room %}
           <li>
-            <a href="{% url 'dashboard' %}?room_id={{ course.general_room.id }}"
+            <a href="{% url 'dashboard:dashboard' %}?room_id={{ course.general_room.id }}"
                class="block px-4 py-1 rounded transition flex items-center gap-2
                     {% if selected_room.id == course.general_room.id %} bg-blue-100 text-blue-700 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-100 {% endif %}">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -66,7 +66,7 @@
           {% endif %}
           {% if course.teachers_room %}
           <li>
-            <a href="{% url 'dashboard' %}?room_id={{ course.teachers_room.id }}"
+            <a href="{% url 'dashboard:dashboard' %}?room_id={{ course.teachers_room.id }}"
                class="block px-4 py-1 rounded transition flex items-center gap-2
                     {% if selected_room.id == course.teachers_room.id %} bg-blue-100 text-blue-700 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-100 {% endif %}">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -81,7 +81,7 @@
             {% for room in course.rooms %}
               {% if room.active %}
                 <li>
-                  <a href="{% url 'dashboard' %}?room_id={{ room.id }}" 
+                  <a href="{% url 'dashboard:dashboard' %}?room_id={{ room.id }}" 
                      class="block px-4 py-1 rounded transition flex items-center gap-2
                           {% if selected_room.id == room.id %} bg-blue-100 text-blue-700 {% else %} text-gray-700 hover:text-blue-600 hover:bg-gray-100 {% endif %}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">

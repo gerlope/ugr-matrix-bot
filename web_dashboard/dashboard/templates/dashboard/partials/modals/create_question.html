@@ -20,7 +20,7 @@
       </div>
     {% endif %}
 
-  <form id="create_question_form" method="POST" action="{% url 'create_question' %}">
+  <form id="create_question_form" method="POST" action="{% url 'dashboard:create_question' %}">
       {% csrf_token %}
       <input type="hidden" name="selected_room_id" value="{{ selected_room.id|default:'' }}">
 
