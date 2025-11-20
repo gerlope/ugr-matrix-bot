@@ -1,0 +1,60 @@
+<div 
+  x-show="$store.modal.gradeResponseModal" 
+  x-cloak 
+  class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" 
+  x-transition.opacity
+  @keydown.escape.window="$store.modal.gradeResponseModal = false"
+  @click.self="$store.modal.gradeResponseModal = false"
+>
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-md z-50 p-6" @click.stop x-transition.opacity>
+    <h3 class="text-lg font-semibold mb-4">Corregir respuesta</h3>
+    <form method="post" :action="`{% url 'dashboard:grade_response' 0 %}`.replace('/0/', '/' + $store.modal.gradeResponseId + '/')" onsubmit="try{ localStorage.setItem('questions_panel_scroll_window', String(window.scrollY || window.pageYOffset || 0)); }catch(e){}">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="block text-sm font-medium text-gray-700">Puntuación (0-100)</label>
+        <input type="number" name="score" min="0" max="100" step="0.01" x-model="$store.modal.gradeResponseScore" class="mt-1 block w-full border rounded px-2 py-1" />
+      </div>
+      <div class="mb-3">
+        <label class="block text-sm font-medium text-gray-700">Feedback (opcional)</label>
+        <textarea name="feedback" x-model="$store.modal.gradeResponseFeedback" rows="4" class="mt-1 block w-full border rounded px-2 py-1"></textarea>
+      </div>
+      <div class="flex justify-end gap-2">
+        <button type="button" class="px-3 py-1 bg-gray-200 rounded" @click="$store.modal.gradeResponseModal = false">Cancelar</button>
+        <button type="submit" class="px-3 py-1 bg-green-600 text-white rounded">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Delegate opening the grade modal and prefilling values
+  (function(){
+    function openHandler(e){
+      const btn = e.target.closest && e.target.closest('.open-grade-modal');
+      if (!btn) return;
+      e.stopPropagation();
+      const id = btn.getAttribute('data-response-id');
+      const score = btn.getAttribute('data-score') || '';
+      const feedback = btn.getAttribute('data-feedback') || '';
+      document.addEventListener('alpine:init', function(){ /* noop to ensure Alpine available */ });
+      // set store values when Alpine is available
+      if (window.Alpine && Alpine.store && Alpine.store('modal')){
+        Alpine.store('modal').gradeResponseId = id;
+        Alpine.store('modal').gradeResponseScore = score;
+        Alpine.store('modal').gradeResponseFeedback = feedback;
+        Alpine.store('modal').gradeResponseModal = true;
+      } else {
+        // fallback: wait for DOMContentLoaded then set
+        document.addEventListener('DOMContentLoaded', function(){
+          if (window.Alpine && Alpine.store && Alpine.store('modal')){
+            Alpine.store('modal').gradeResponseId = id;
+            Alpine.store('modal').gradeResponseScore = score;
+            Alpine.store('modal').gradeResponseFeedback = feedback;
+            Alpine.store('modal').gradeResponseModal = true;
+          }
+        });
+      }
+    }
+    document.addEventListener('click', openHandler, true);
+  })();
+</script>

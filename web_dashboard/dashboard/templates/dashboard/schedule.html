@@ -35,20 +35,22 @@
     {% endfor %}
   </div>
 
-  <div class="hidden sm:grid grid-cols-8 gap-2 items-start">
+  <div class="hidden sm:grid grid-cols-8 gap-1 items-start">
     <!-- Top header row: Hora + day names -->
     <div></div>
     {% for day_obj in days_with_slots %}
-      <div class="text-sm font-medium text-center bg-gray-50 rounded-t p-2 border-b">{{ day_obj.day }}</div>
+      <div class="text-sm font-medium text-center bg-gray-100 rounded-t p-2 border-b">{{ day_obj.day }}</div>
     {% endfor %}
 
     <!-- Second row: left hour legend -->
-    <div style="height:36rem;">
-      <div class="bg-indigo-50 rounded-lg border-2 border-indigo-200 p-2 h-full shadow-sm">
+    <div class="sm:h-[36rem] h-auto">
+      <div class="bg-indigo-50 rounded-lg border border-indigo-200 h-full shadow-sm">
         <div class="relative h-full" aria-label="Leyenda de intervalos horarios">
           <div class="absolute inset-0 flex flex-col">
             {% for h in timeline_hours %}
-              <div class="flex-1 border-b border-dashed border-indigo-100 flex items-center justify-center text-sm text-indigo-700">{{ h|stringformat:"02d" }}:00 - {{ h|add:1|stringformat:"02d" }}:00</div>
+                <div class="flex-1 border-b-2 border-indigo-300 flex items-center justify-center text-sm text-indigo-700 px-2">
+                  <span class="truncate">{{ h|stringformat:"02d" }}:00 - {{ h|add:1|stringformat:"02d" }}:00</span>
+                </div>
             {% endfor %}
           </div>
         </div>
@@ -61,23 +63,23 @@
       <div class="absolute inset-0 bg-white rounded border overflow-hidden z-0">
         <div class="absolute inset-0 flex flex-col">
           {% for h in timeline_hours %}
-            <div class="flex-1 border-b border-dashed border-gray-100"></div>
+            <div class="flex-1 border-b-2 border-gray-200"></div>
           {% endfor %}
         </div>
       </div>
 
       <!-- Days columns on top of shared grid -->
-  <div class="relative z-10 grid grid-cols-7" style="height:36rem;">
+  <div class="relative z-10 grid grid-cols-7 sm:h-[36rem] h-auto">
   {% for day_obj in days_with_slots %}
         <div class="bg-transparent rounded p-0 flex flex-col border-l border-gray-100">
           <div class="relative flex-1">
             {% if day_obj.slots %}
               {% for slot in day_obj.slots %}
                 {% if slot.height_pct and slot.height_pct > 0 %}
-                  <div onclick="openEditModalFromSlot(this)" class="absolute left-2 right-2 rounded text-xs text-white flex items-center justify-center px-1 group"
+                  <div onclick="openEditModalFromSlot(this)" class="absolute left-1 right-1 rounded text-xs text-white flex items-center justify-center px-1 group"
                   data-id="{{ slot.id }}" data-start="{{ slot.start }}" data-end="{{ slot.end }}" data-label="{{ slot.start }} — {{ slot.end }}" data-top="{{ slot.top_pct|floatformat:2 }}" data-height="{{ slot.height_pct|floatformat:2 }}">
                     <button type="button" class="absolute top-1 right-1 text-white rounded-full p-1 bg-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-150" onclick="event.stopPropagation(); openDeleteModalFromEl(this)" aria-label="Eliminar intervalo" title="Eliminar intervalo"></button>
-                    <div class="px-2">{{ slot.start }} — {{ slot.end }}</div>
+                    <div class="px-2 whitespace-nowrap truncate">{{ slot.start }} - {{ slot.end }}</div>
 
                     <!-- Hover extension: a small floating circular handle inside the slot (visible on slot hover) -->
                     <div class="absolute opacity-0 group-hover:opacity-100 transition-all duration-150" style="right: 0.5rem; top: 50%; transform: translateY(-50%);">
@@ -91,8 +93,6 @@
                   </div>
                 {% endif %}
               {% endfor %}
-            {% else %}
-              <div class="absolute inset-0 flex items-center justify-center text-sm text-gray-400 italic">Sin disponibilidad</div>
             {% endif %}
           </div>
         </div>

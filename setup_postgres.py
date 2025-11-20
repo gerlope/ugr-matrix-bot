@@ -163,7 +163,7 @@ async def main():
             # Conectar y crear esquema en la base de datos
             conn = await asyncpg.connect(PG_DSN)
 
-            schema_file = Path(__file__).parent / "core/db/postgres/schema.sql"
+            schema_file = Path(__file__).parent / "bot/core/db/postgres/schema.sql"
             if not schema_file.exists():
                 raise FileNotFoundError(f"No se encontró {schema_file}")
         

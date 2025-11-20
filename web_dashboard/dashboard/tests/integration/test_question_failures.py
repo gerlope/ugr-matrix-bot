@@ -4,11 +4,13 @@ from django.test import TestCase
 from django.contrib.auth.models import User
 from django.urls import reverse
 
-from dashboard.tests.helpers.mocks import dashboard_test_stack, DummyQuestion
+from dashboard.tests.helpers.mocks import DummyRoom, dashboard_test_stack, DummyQuestion
+"""Integration tests covering create/toggle/delete question failure paths.
 
-
-# reuse DummyQuestion from helpers.mocks
-
+These tests mock the `Room` and `Question` models and exercise
+the create/delete/toggle endpoints to ensure proper error handling
+and messaging for edge cases and exceptions.
+"""
 
 class QuestionFailureTests(TestCase):
     def setUp(self):
@@ -53,12 +55,15 @@ class QuestionFailureTests(TestCase):
             resp = self.client.post(reverse('dashboard:create_question'), {
                 'selected_room_id': '7',
                 'qtype': 'short_answer',
+                'title': 'No permission',
                 'body': 'text',
             }, follow=True)
         # Should redirect back to dashboard with error message
         self.assertEqual(resp.status_code, 200)
-        # messages are in context
-        self.assertTrue(any('No tienes permiso' in str(m) for m in resp.context['messages']))
+        # messages may not always appear in resp.context; read from the request
+        from django.contrib.messages import get_messages
+        msgs = [str(m) for m in get_messages(resp.wsgi_request)]
+        self.assertTrue(any('No tienes permiso' in m for m in msgs))
 
     def test_create_question_multiple_choice_no_correct(self):
         # Patch Room to be owned by teacher
@@ -71,6 +76,7 @@ class QuestionFailureTests(TestCase):
             post = {
                 'selected_room_id': '8',
                 'qtype': 'multiple_choice',
+                'title': 'Choose one title',
                 'body': 'Choose one',
                 'option_0': 'A',
                 'option_1': 'B',
@@ -93,6 +99,7 @@ class QuestionFailureTests(TestCase):
             resp = self.client.post(reverse('dashboard:create_question'), {
                 'selected_room_id': '9',
                 'qtype': 'short_answer',
+                'title': 'Answer title',
                 'body': 'Answer',
             })
         self.assertEqual(resp.status_code, 200)
@@ -156,3 +163,40 @@ class QuestionFailureTests(TestCase):
             resp = self.client.post(reverse('dashboard:delete_question', args=[9]), follow=True)
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(any('Error al eliminar la pregunta' in str(m) for m in resp.context['messages']))
+
+
+    def test_create_poll_success_and_options_not_correct(self):
+        fake_q = DummyQuestion(id=111, teacher_id=42, room_id=5)
+        fake_room = mock.MagicMock()
+        fake_room.teacher_id = 42
+        fake_room.id = 5
+        with mock.patch('dashboard.views.Room') as R, \
+            mock.patch('dashboard.views.Question') as Q, \
+            mock.patch('dashboard.views.QuestionOption') as QO:
+            R.objects.using.return_value.filter.return_value.first.return_value = fake_room
+            Q.objects.using.return_value.create.return_value = fake_q
+            # Track QuestionOption.create calls
+            QO.objects.using.return_value.create = mock.MagicMock()
+
+            resp = self.client.post(reverse('dashboard:create_question'), {
+                'selected_room_id': '5',
+                'qtype': 'poll',
+                'title': 'No permission',
+                'body': 'text',
+                'body': 'Which do you prefer?',
+                'option_0': 'Tea',
+                'option_1': 'Coffee',
+            }, follow=False)            
+            # Should redirect to dashboard with room_id param
+            self.assertEqual(resp.status_code, 302)
+            self.assertIn('room_id=5', resp['Location'])
+
+            # Ensure QuestionOption.create was called for both options and with is_correct=False
+            calls = QO.objects.using.return_value.create.call_args_list
+            self.assertEqual(len(calls), 2)
+            for call in calls:
+                kwargs = call.kwargs
+                self.assertIn('question_id', kwargs)
+                self.assertIn('text', kwargs)
+                self.assertFalse(kwargs.get('is_correct', True))
+

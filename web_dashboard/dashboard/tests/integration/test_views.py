@@ -1,4 +1,10 @@
 import datetime
+"""Integration tests for top-level dashboard views.
+
+Contains tests that verify the main dashboard page, room selection
+and basic rendering with mocked Moodle and bot DB data.
+"""
+import datetime
 from unittest import mock
 from django.test import TestCase
 from django.contrib.auth.models import User

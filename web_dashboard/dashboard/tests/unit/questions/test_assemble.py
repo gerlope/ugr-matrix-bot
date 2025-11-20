@@ -1,3 +1,9 @@
+"""Unit tests validating assembly and grouping of questions and related data.
+
+These tests exercise `assemble_questions_for_room` behaviour using
+lightweight mock objects provided by `dashboard.tests.helpers.mocks`.
+"""
+
 import datetime
 from django.test import SimpleTestCase
 
@@ -9,10 +15,6 @@ class Obj:
         for k,v in kwargs.items():
             setattr(self, k, v)
 
-class Obj:
-    def __init__(self, **kwargs):
-        for k,v in kwargs.items():
-            setattr(self, k, v)
 
 class AssembleQuestionsTests(SimpleTestCase):
     def test_assemble_questions_for_room_populated(self):

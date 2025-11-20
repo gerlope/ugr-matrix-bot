@@ -1,3 +1,11 @@
+"""Integration tests for room availability flows and failure cases.
+
+These tests exercise the dashboard endpoints that manage teacher
+availability slots — ensuring validation, overlap detection and
+error handling behave as expected when interacting with the views
+and mocked external dependencies.
+"""
+
 import datetime
 from unittest import mock
 from django.test import TestCase

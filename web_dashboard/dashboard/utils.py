@@ -241,9 +241,9 @@ def assemble_questions_for_room(selected_room, teacher_id: int) -> List[Dict[str
                 resp_ids = [r.id for r in resp_qs]
                 resp_opts_map: Dict[int, List[int]] = {}
                 if resp_ids:
-                    resp_opts = ResponseOption.objects.using('bot_db').filter(response_id__in=resp_ids)
-                    for ro in resp_opts:
-                        resp_opts_map.setdefault(ro.response_id, []).append(ro.option_id)
+                    resp_opts_qs = ResponseOption.objects.using('bot_db').filter(response_id__in=resp_ids).values('response_id', 'option_id')
+                    for ro in resp_opts_qs:
+                        resp_opts_map.setdefault(ro['response_id'], []).append(ro['option_id'])
 
                 student_ids = list({r.student_id for r in resp_qs})
                 students_map: Dict[int, ExternalUser] = {}
@@ -252,6 +252,14 @@ def assemble_questions_for_room(selected_room, teacher_id: int) -> List[Dict[str
                     for u in users:
                         students_map[u.id] = u
 
+                # Collect grader ids to map to ExternalUser objects (teachers or graders)
+                grader_ids = list({getattr(r, 'grader_id') for r in resp_qs if getattr(r, 'grader_id', None)})
+                graders_map: Dict[int, ExternalUser] = {}
+                if grader_ids:
+                    gusers = ExternalUser.objects.using('bot_db').filter(id__in=grader_ids)
+                    for gu in gusers:
+                        graders_map[gu.id] = gu
+
                 q_responses: Dict[int, List[Dict[str, Any]]] = {}
                 for r in resp_qs:
                     q_responses.setdefault(r.question_id, []).append({
@@ -259,10 +267,16 @@ def assemble_questions_for_room(selected_room, teacher_id: int) -> List[Dict[str
                         'student_id': r.student_id,
                         'student': students_map.get(r.student_id),
                         'option_id': r.option_id,
+                        'option_key': getattr(qo, 'option_key', None) if (qo := next((o for o in question_options.get(r.question_id, []) if o.id == r.option_id), None)) else None,
                         'option_ids': resp_opts_map.get(r.id, []),
+                        'option_keys': [getattr(qo, 'option_key', None) for qo in QuestionOption.objects.using('bot_db').filter(id__in=resp_opts_map.get(r.id, []))],
                         'answer_text': r.answer_text,
                         'submitted_at': r.submitted_at,
                         'score': getattr(r, 'score', None),
+                        'is_graded': getattr(r, 'is_graded', False),
+                        'grader_id': getattr(r, 'grader_id', None),
+                        'grader': graders_map.get(getattr(r, 'grader_id', None)),
+                        'feedback': getattr(r, 'feedback', None),
                     })
 
                 for entry in selected_questions:

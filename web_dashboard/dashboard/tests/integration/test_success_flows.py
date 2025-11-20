@@ -4,6 +4,13 @@ from django.test import TestCase
 from django.contrib.auth.models import User
 from django.urls import reverse
 
+"""Integration tests for happy-path flows used by teachers.
+
+Includes scenarios such as creating rooms, creating questions and
+other end-to-end flows with mocked external services to avoid real
+network/database side-effects.
+"""
+
 from dashboard.tests.helpers.mocks import dashboard_test_stack, DummyRoom, DummyQuestion
 
 
@@ -58,6 +65,7 @@ class SuccessFlowsTests(TestCase):
             resp = self.client.post(reverse('dashboard:create_question'), {
                 'selected_room_id': '77',
                 'qtype': 'short_answer',
+                'title': 'Simple Question',
                 'body': 'What is 2+2?',
                 'expected_answer': '4',
             }, follow=False)

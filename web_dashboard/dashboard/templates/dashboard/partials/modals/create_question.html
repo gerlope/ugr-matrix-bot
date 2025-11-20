@@ -25,8 +25,8 @@
       <input type="hidden" name="selected_room_id" value="{{ selected_room.id|default:'' }}">
 
       <div class="mb-3">
-        <label class="block mb-1 font-medium">Título (opcional)</label>
-        <input type="text" name="title" class="w-full border rounded px-3 py-2" value="{{ create_question_form.title.value|default_if_none:'' }}">
+        <label class="block mb-1 font-medium">Título</label>
+        <input type="text" name="title" required class="w-full border rounded px-3 py-2" value="{{ create_question_form.title.value|default_if_none:'' }}">
       </div>
 
       <div class="mb-3">
@@ -36,16 +36,16 @@
 
       <div class="mb-3">
         <label class="block mb-1 font-medium">Tipo de pregunta</label>
-        <select name="qtype" x-model="qtype" class="w-full border rounded px-3 py-2">
+          <select name="qtype" x-model="qtype" class="w-full border rounded px-3 py-2">
           <option value="multiple_choice" {% if create_question_form and create_question_form.qtype.value == 'multiple_choice' %}selected{% endif %}>Opción múltiple</option>
+          <option value="poll" {% if create_question_form and create_question_form.qtype.value == 'poll' %}selected{% endif %}>Encuesta</option>
           <option value="true_false" {% if create_question_form and create_question_form.qtype.value == 'true_false' %}selected{% endif %}>Verdadero/Falso</option>
           <option value="short_answer" {% if create_question_form and create_question_form.qtype.value == 'short_answer' %}selected{% endif %}>Respuesta corta</option>
           <option value="numeric" {% if create_question_form and create_question_form.qtype.value == 'numeric' %}selected{% endif %}>Numérica</option>
           <option value="essay" {% if create_question_form and create_question_form.qtype.value == 'essay' %}selected{% endif %}>Desarrollo</option>
         </select>
       </div>
-      <template x-if="qtype == 'multiple_choice'">
-        <div class="mb-3" x-data="{ opts: options, corrects: (options && options.length) ? options.map(() => false) : [], allow_multi: false, single_correct_index: null }">
+      <div x-show="qtype == 'multiple_choice' || qtype == 'poll'" class="mb-3" x-data="{ opts: options, corrects: (options && options.length) ? options.map(() => false) : [], allow_multi: false, single_correct_index: null }">
           <label class="block mb-1 font-medium">Opciones</label>
 
           <div class="mb-2 flex items-center space-x-4">
@@ -60,18 +60,17 @@
             <div class="flex items-center space-x-2 mb-2">
               <input :name="`option_${idx}`" x-model="opts[idx]" class="flex-1 border rounded px-3 py-2" placeholder="Texto de la opción">
 
-              <template x-if="allow_multi">
-                <label class="flex items-center space-x-2">
+              <!-- Show correct-choice controls only for actual multiple_choice (not for poll) -->
+              <div x-show="qtype == 'multiple_choice'">
+                <label class="flex items-center space-x-2" x-show="allow_multi">
                   <input type="checkbox" :name="`option_correct_${idx}`" x-model="corrects[idx]" class="rounded" />
                   <span class="text-sm text-gray-600">Correcta</span>
                 </label>
-              </template>
-              <template x-if="!allow_multi">
-                <label class="flex items-center space-x-2">
+                <label class="flex items-center space-x-2" x-show="!allow_multi">
                   <input type="radio" name="option_correct_single" :value="idx" x-model="single_correct_index" class="rounded" />
                   <span class="text-sm text-gray-600">Correcta</span>
                 </label>
-              </template>
+              </div>
 
               <button type="button" @click="opts.splice(idx,1); corrects.splice(idx,1)" class="px-2 py-1 bg-red-600 text-white rounded">Eliminar</button>
             </div>
@@ -81,6 +80,10 @@
             <button type="button" @click="opts.push(''); corrects.push(false)" class="px-3 py-1 bg-blue-600 text-white rounded">Añadir opción</button>
             <div class="text-sm text-gray-500 self-center">Añade opciones y marca la(s) correcta(s) antes de crear.</div>
           </div>
+
+          <template x-if="qtype == 'poll'">
+            <p class="text-sm text-gray-500 mt-2">Encuesta: no hay respuestas correctas, las opciones servirán sólo para recoger votos.</p>
+          </template>
 
           <template x-for="(opt, idx) in opts" :key="'hidden-'+idx">
             <input type="hidden" :name="`option_${idx}`" :value="opt">
@@ -134,7 +137,7 @@
 
       <div class="mb-4 space-y-2">
         <label class="flex items-center space-x-2"><input type="checkbox" name="allow_multiple_submissions" class="rounded" {% if create_question_form.allow_multiple_submissions.value %}checked{% endif %}> Permitir varios envíos por alumno</label>
-        <template x-if="qtype != 'essay'">
+        <template x-if="qtype != 'essay' && qtype != 'poll'">
           <label class="flex items-center space-x-2"><input type="checkbox" name="close_on_first_correct" class="rounded" {% if create_question_form.close_on_first_correct.value %}checked{% endif %}> Cerrar tras la primera respuesta correcta</label>
         </template>
       </div>

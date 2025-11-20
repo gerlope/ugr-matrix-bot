@@ -27,13 +27,24 @@ SECRET_KEY = DJANGO_SECRET_KEY
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# Only enable SSL redirect in production
+# Production security defaults (will be relaxed below when DEBUG is True)
 if not DEBUG:
+    CSRF_TRUSTED_ORIGINS = ['https://dominio.ugr.es']
+    CSRF_COOKIE_SECURE = True
+    CSRF_USE_SESSIONS = True
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000  # Si vas a usar un valor grande asegurate de que
+                                    # tus certs estan en buen estado y van a segir asi
+                                    # Para hacer tests usad uno bajo
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
-ALLOWED_HOSTS = []
+# If behind a reverse proxy/SSL terminator (e.g., Apache/Nginx), this lets Django
+# know the original request used HTTPS so it doesn't mis-detect insecure requests.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 
 # Login and logout settings

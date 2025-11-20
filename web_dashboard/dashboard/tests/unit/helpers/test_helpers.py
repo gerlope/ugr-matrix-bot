@@ -1,3 +1,9 @@
+"""Unit tests for small dashboard helper functions and test utilities.
+
+This module focuses on the pure utility functions in `dashboard.utils`
+and the test helper machinery (mock patches) used across the test suite.
+"""
+
 import datetime
 from django.test import SimpleTestCase
 

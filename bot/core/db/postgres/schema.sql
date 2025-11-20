@@ -153,6 +153,7 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'question_type') THEN
         CREATE TYPE question_type AS ENUM (
             'multiple_choice',
+            'poll',
             'true_false',
             'short_answer',
             'numeric',

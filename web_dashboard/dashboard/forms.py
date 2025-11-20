@@ -15,10 +15,11 @@ class CreateRoomForm(forms.Form):
 
 
 class CreateQuestionForm(forms.Form):
-    title = forms.CharField(max_length=255, required=False)
+    title = forms.CharField(max_length=255, required=True)
     body = forms.CharField(widget=forms.Textarea, required=True)
     QTYPE_CHOICES = [
         ('multiple_choice', 'Opción múltiple'),
+        ('poll', 'Encuesta'),
         ('true_false', 'Verdadero/Falso'),
         ('short_answer', 'Respuesta corta'),
         ('numeric', 'Numérica'),
@@ -75,3 +76,8 @@ class EditAvailabilityForm(forms.Form):
         if et and et > latest:
             raise forms.ValidationError('La hora de fin no puede ser después de las 21:00.')
         return cleaned
+
+
+class GradeResponseForm(forms.Form):
+    score = forms.DecimalField(required=False, min_value=0, max_value=100, max_digits=6, decimal_places=2)
+    feedback = forms.CharField(required=False, widget=forms.Textarea)

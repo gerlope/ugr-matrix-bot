@@ -145,6 +145,16 @@ def patch_questions(data):
             return self
         def filter(self, **kwargs):  # allow chaining filter on objects mock
             return self
+        def values(self, *fields):
+            # Return list of dicts with requested fields to emulate QuerySet.values()
+            out = []
+            for obj in self:
+                row = {}
+                for f in fields:
+                    # support attribute names directly
+                    row[f] = getattr(obj, f, None)
+                out.append(row)
+            return out
 
     questions = data.get('questions', [])
     options = data.get('options', [])

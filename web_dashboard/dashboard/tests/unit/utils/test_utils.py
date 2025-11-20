@@ -1,3 +1,9 @@
+"""Unit tests for core utility functions in `dashboard.utils`.
+
+This file contains tests for availability calculations, overlap
+checks and other non-networking helpers.
+"""
+
 import datetime
 from unittest import mock
 from dashboard.tests.helpers.mocks import patch_teacher_availability, DummyAvail
@@ -27,11 +33,6 @@ class UtilsTests(SimpleTestCase):
         self.assertEqual(utils.assemble_questions_for_room(None, teacher_id=1), [])
 
     def test_check_availability_overlap_detects(self):
-        """Ensure overlapping interval is detected.
-
-        We patch the real model path ``dashboard.models.TeacherAvailability`` because
-        ``check_availability_overlap`` does a late import inside the function.
-        """
         existing = [
             DummyAvail(1, 'Monday', datetime.time(8, 0), datetime.time(9, 0)),
             DummyAvail(2, 'Monday', datetime.time(10, 0), datetime.time(11, 0)),
@@ -60,19 +61,8 @@ class UtilsTests(SimpleTestCase):
         self.assertIsNone(conflict)
 
     def test_check_availability_overlap_cases(self):
-        """Parameterized edge cases using subTests for overlap logic.
-
-        Cases:
-          - partial overlap at start
-          - partial overlap at end
-          - exact match (overlap)
-          - touching end (no overlap)
-          - touching start (no overlap)
-          - enclosure (new interval fully inside existing)
-        """
         base = DummyAvail(1, 'Monday', datetime.time(8, 0), datetime.time(10, 0))
         cases = [
-            # (start, end, expect_conflict)
             (datetime.time(7, 30), datetime.time(8, 30), True),  # partial at start
             (datetime.time(9, 30), datetime.time(10, 30), True),  # partial at end
             (datetime.time(8, 0), datetime.time(10, 0), True),   # exact match

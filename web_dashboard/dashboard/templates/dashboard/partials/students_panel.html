@@ -1,0 +1,60 @@
+{% comment %} Students panel: list of students and their reactions {% endcomment %}
+<div class="bg-white shadow rounded-lg p-4">
+  <h3 class="text-lg font-semibold mb-4">Estudiantes</h3>
+  <ul class="divide-y">
+    {% if not students %}
+        <p class="text-gray-600 italic">No hay estudiantes en esta sala.</p>
+    {% endif %}
+    {% for student in students %}
+    <li x-data="{ open: false }" class="py-2">
+      <button 
+        @click="open = !open" 
+        class="w-full flex justify-between items-center text-left px-2 py-2 hover:bg-gray-50 rounded transition"
+      >
+        <span class="font-medium text-gray-800">
+          👤 {{ student.full_name }} 
+          <span class="text-gray-500 text-sm">({{ student.matrix_id }})</span>
+        </span>
+        <svg 
+          :class="{'rotate-180': open}" 
+          class="w-4 h-4 transform transition-transform duration-300"
+          xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      <div 
+        x-show="open"
+        x-transition
+        class="ml-4 mt-2 bg-gray-50 rounded-lg border p-3"
+      >
+        <h4 class="font-semibold mb-2 text-gray-700">Reacciones dadas:</h4>
+        {% if student.reactions %}
+          <table class="w-full text-sm text-gray-700">
+            <thead>
+              <tr class="text-left border-b">
+                <th class="py-1 px-2">Emoji</th>
+                <th class="py-1 px-2">Conteo</th>
+                <th class="py-1 px-2">Última actualización</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for reaction in student.reactions %}
+              <tr class="hover:bg-gray-100">
+                <td class="py-1 px-2">{{ reaction.emoji }}</td>
+                <td class="py-1 px-2">{{ reaction.total_count }}</td>
+                <td class="py-1 px-2">{{ reaction.latest_update|date:"Y-m-d H:i" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="text-gray-500 italic">Sin reacciones registradas.</p>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</div>

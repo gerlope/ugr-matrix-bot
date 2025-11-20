@@ -15,10 +15,11 @@ from .utils import (
     WEEK_DAYS_ES,
 )
 from .models import Room, ExternalUser, TeacherAvailability
-from .forms import ExternalLoginForm, CreateRoomForm, CreateQuestionForm
-from .models import Question, QuestionOption
+from .forms import ExternalLoginForm, CreateRoomForm, CreateQuestionForm, GradeResponseForm
+from .models import Question, QuestionOption, QuestionResponse
 from django.utils import timezone
 from config import HOMESERVER
+from .models import QuestionResponse
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -385,7 +386,7 @@ def create_question(request):
                     is_correct=is_correct,
                     position=idx
                 )
-        else:  # multiple_choice
+        elif qtype == 'multiple_choice':
             single_choice = request.POST.get('option_correct_single')
             for idx, opt_text in enumerate(options):
                 if single_choice is not None and single_choice != '':
@@ -398,6 +399,16 @@ def create_question(request):
                     option_key=chr(65 + (idx % 26)),
                     text=opt_text,
                     is_correct=is_correct,
+                    position=idx
+                )
+        elif qtype == 'poll':
+            # Poll behaves like multiple choice but there are no correct options
+            for idx, opt_text in enumerate(options):
+                QuestionOption.objects.using('bot_db').create(
+                    question_id=q.id,
+                    option_key=chr(65 + (idx % 26)),
+                    text=opt_text,
+                    is_correct=False,
                     position=idx
                 )
         messages.success(request, 'Pregunta creada correctamente.')
@@ -485,4 +496,54 @@ def delete_question(request, question_id):
         messages.success(request, 'Pregunta eliminada correctamente.')
     except Exception as e:
         messages.error(request, f"Error al eliminar la pregunta: {e}")
+    return redirect(f"{reverse('dashboard:dashboard')}?room_id={q.room_id}")
+
+
+@require_POST
+@login_required(login_url='dashboard:login')
+def grade_response(request, response_id):
+    teacher = _get_teacher(request)
+    if not teacher:
+        return redirect('dashboard:login')
+    resp = QuestionResponse.objects.using('bot_db').filter(id=response_id).first()
+    if not resp:
+        messages.error(request, 'Respuesta no encontrada.')
+        return redirect('dashboard:dashboard')
+    # check that the teacher owns the question
+    q = Question.objects.using('bot_db').filter(id=resp.question_id).first()
+    if not q or q.teacher_id != teacher['id']:
+        messages.error(request, 'No tienes permiso para corregir esta respuesta.')
+        return redirect('dashboard:dashboard')
+
+    if request.method == 'POST':
+        form = GradeResponseForm(request.POST)
+        if not form.is_valid():
+            # re-render dashboard with modal open and form errors
+            data = get_data_for_dashboard(teacher, q.room_id)
+            return render(request, 'dashboard/dashboard.html', {
+                'teacher': teacher,
+                'courses': data['courses'],
+                'selected_room': data['selected_room'],
+                'selected_course': data['selected_course'],
+                'students': data['selected_students'],
+                'questions_list': data.get('selected_questions', []),
+                'grade_response_form': form,
+                'show_grade_response_modal': 'true',
+                'grade_response_id': response_id,
+                'grade_response_score': request.POST.get('score', ''),
+                'grade_response_feedback': request.POST.get('feedback', ''),
+                'selected_page': 'dashboard',
+            })
+
+        try:
+            score = form.cleaned_data.get('score')
+            feedback = form.cleaned_data.get('feedback') or None
+            resp.score = float(score) if score is not None else None
+            resp.feedback = feedback
+            resp.is_graded = True
+            resp.grader_id = teacher['id']
+            resp.save(using='bot_db')
+            messages.success(request, 'Respuesta corregida correctamente.')
+        except Exception as e:
+            messages.error(request, f'Error al guardar la corrección: {e}')
     return redirect(f"{reverse('dashboard:dashboard')}?room_id={q.room_id}")

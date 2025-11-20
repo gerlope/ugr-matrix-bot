@@ -18,6 +18,10 @@
   data-show-create-question-modal="{{ show_create_question_modal|default:'false' }}"
   data-show-create-availability-modal="{{ show_create_availability_modal|default:'false' }}"
   data-show-edit-availability-modal="{{ show_edit_availability_modal|default:'false' }}"
+  data-show-grade-response-modal="{{ show_grade_response_modal|default:'false' }}"
+  data-grade-response-id="{{ grade_response_id|default:'' }}"
+  data-grade-response-score="{{ grade_response_score|default:'' }}"
+  data-grade-response-feedback="{{ grade_response_feedback|default:''|escapejs }}"
   class="bg-gray-100 text-gray-800 h-full flex flex-col"
 >
   <!-- Header -->
@@ -50,28 +54,35 @@
   {% include 'dashboard/partials/modals/create_availability.html' %}
   {% include 'dashboard/partials/modals/edit_availability.html' %}
   {% include 'dashboard/partials/modals/delete_question.html' %}
+  {% include 'dashboard/partials/modals/grade_response.html' %}
   {% include 'dashboard/partials/modals/delete_availability.html' %}
 
   <script>
     document.addEventListener('alpine:init', () => {
       const body = document.querySelector('body');
       Alpine.store('modal', {
+        // room modals states
         createRoomModal: body.dataset.showCreateRoomModal === "true",
         deactivateRoomModal: false,
+        // question modals states
         createQuestionModal: body.dataset.showCreateQuestionModal === "true",
         deleteQuestionModal: false,
         deleteQuestionId: null,
         deleteQuestionTitle: '',
-        // availability deletion modal state
+        // availability modals states
         deleteAvailabilityModal: false,
         deleteAvailabilityId: null,
         deleteAvailabilityLabel: '',
-  // create/edit availability modal state
-  createAvailabilityModal: body.dataset.showCreateAvailabilityModal === "true",
-  editAvailabilityModal: body.dataset.showEditAvailabilityModal === "true",
-  editAvailabilityId: null,
-  editAvailabilityStart: '',
-  editAvailabilityEnd: '',
+        createAvailabilityModal: body.dataset.showCreateAvailabilityModal === "true",
+        editAvailabilityModal: body.dataset.showEditAvailabilityModal === "true",
+        editAvailabilityId: null,
+        editAvailabilityStart: '',
+        editAvailabilityEnd: '',
+        // grading modal state
+        gradeResponseModal: body.dataset.showGradeResponseModal === "true",
+        gradeResponseId: body.dataset.gradeResponseId || null,
+        gradeResponseScore: body.dataset.gradeResponseScore || '',
+        gradeResponseFeedback: body.dataset.gradeResponseFeedback || '',
       });
     });
   </script>
